@@ -1,4 +1,5 @@
 #include "memory.h"
+#include "defines.h"
 
 #include <limits.h>
 
@@ -10,7 +11,11 @@ namespace TProcess {
 /**
  * @brief Typedef for commonly used binary vector
  */
-typedef std::vector<std::pair<bool, uint8_t>> binary_t;
+struct binary_t {
+    uint8_t data[512];
+    bool    mask[512];
+    size_t  size = 0;
+};
 
 /**
  * @brief Initializes the hex table if it isn't already.  Otherwise simply
@@ -57,25 +62,29 @@ static uint8_t* HexTable()
  *
  * @return std::vector<bool, uint8_t> (i.e. wildcard,byte)
  */
-static binary_t Hex2Bin(const std::string& src)
+static bool Hex2Bin(const std::string& src, binary_t& bin)
 {
     const uint8_t* hl = HexTable();
-
-    if ((src.size() % 2) != 0) {
-        return {};
+    const size_t srcSize = src.size();
+    if ((srcSize % 2) != 0) {
+        return false;
     }
 
-    binary_t bin;
-    for (size_t i = 0; i < src.size(); i += 2) {
+    bin.size = 0;
+
+    for (size_t i = 0; i < srcSize; i += 2) {
         if (src[i] == '.') {
-            bin.push_back({true, 0});
+            bin.data[bin.size] = 0;
+            bin.mask[bin.size] = true;
         } else {
-            bin.push_back({false, (hl[(uint8_t)src[i]] << 4) | hl[(uint8_t)src[i + 1]]});
+            bin.data[bin.size] = (hl[(uint8_t)src[i]] << 4) | hl[(uint8_t)src[i + 1]];
+            bin.mask[bin.size] = false;
         }
+        bin.size++;
     }
-    return bin;
+    bin.mask[bin.size] = false;
+    return true;
 }
-
 
 /**
  * @brief Constructs a TProcess::Memory object with the specified PID as the
@@ -225,31 +234,30 @@ uintptr_t Memory::Region::Find(Memory& m, const std::string& pattern, size_t off
 {
     constexpr size_t bufSize = 0x1000;
     uint8_t buf[bufSize];
-    binary_t bin = Hex2Bin(pattern.c_str());
-    const size_t binSize = bin.size();
-    if (bin.empty()) {
-        return 0;
-    }
-
-    size_t chunk = 0;
-    size_t total = this->end - this->start;
-    while (total > 0) {
-        size_t readSize = (total < bufSize) ? total : bufSize;
-        uintptr_t readAddr = this->start + (bufSize * chunk);
-        memset(buf, 0, bufSize);
+    binary_t bin;
+    Hex2Bin(pattern, bin);
+    
+    uintptr_t readAddr = this->start;
+    size_t readSize = bufSize;
+    while (readAddr < this->end) {
         if (m.Read(readAddr, buf, readSize)) {
-            for (uintptr_t b = 0; b < readSize; ++b) {
+            for (size_t b = 0; b < readSize; ++b) {
                 size_t match = 0;
-                while (bin[match].first || bin[match].second == buf[b + match]) {
+                while (bin.data[match] == buf[b + match]) {
                     match++;
-                    if (match == binSize) {
+                    if (match == bin.size) {
                         return readAddr + b + offset;
+                    }
+                    while (bin.mask[match]) {
+                        match++;
                     }
                 }
             }
         }
-        total -= readSize;
-        chunk++;
+        readAddr += bufSize;
+        if (readSize > this->end - readAddr + bufSize) {
+            readSize = this->end - readAddr;
+        }
     }
 
     return 0;

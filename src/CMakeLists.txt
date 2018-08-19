@@ -14,3 +14,11 @@ set_target_properties(tuxdump
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(DEBUG_BUILD 1)
+endif()
+
+configure_file(defines.h.in defines.h @ONLY)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+

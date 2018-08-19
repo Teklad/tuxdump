@@ -28,7 +28,7 @@ class Memory {
 
 
         template<typename T>
-        bool Read(uintptr_t addr, T& value, size_t len = sizeof(T))
+        inline bool Read(uintptr_t addr, T& value, size_t len = sizeof(T))
         {
             struct iovec local = {&value, len};
             struct iovec remote = {reinterpret_cast<void*>(addr), len};
@@ -37,7 +37,7 @@ class Memory {
         }
 
         template<typename T>
-        bool Write(uintptr_t addr, T value, size_t len = sizeof(T))
+        inline bool Write(uintptr_t addr, T value, size_t len = sizeof(T))
         {
             struct iovec local = {&value, len};
             struct iovec remote = {reinterpret_cast<void*>(addr), len};
