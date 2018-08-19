@@ -22,6 +22,8 @@ class TConfig {
         TConfig& operator=(const TConfig&) = delete;
         bool ReadFile(const char* file);
         bool ReadFile(const std::string& file);
+        std::string GetName();
+        std::string GetVersion();
         signatures_t GetSignatures();
     private:
         libconfig::Config m_cfg;

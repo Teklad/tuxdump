@@ -22,6 +22,26 @@ bool TConfig::ReadFile(const std::string& file)
     return ReadFile(file.c_str());
 }
 
+std::string TConfig::GetName()
+{
+    const libconfig::Setting& root = m_cfg.getRoot();
+    std::string result = "Unknown";
+    if (root.exists("name")) {
+        root.lookupValue("name", result);
+    }
+    return result;
+}
+
+std::string TConfig::GetVersion()
+{
+    const libconfig::Setting& root = m_cfg.getRoot();
+    std::string result = "Unknown";
+    if (root.exists("version")) {
+        root.lookupValue("version", result);
+    }
+    return result;
+}
+
 signatures_t TConfig::GetSignatures()
 {
     const libconfig::Setting& root = m_cfg.getRoot();

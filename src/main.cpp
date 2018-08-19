@@ -4,6 +4,7 @@
 #include <getopt.h>
 #include <cstdio>
 
+
 struct CommandLineOptions {
     std::string cfgFile = "csgo.cfg";
     int pid = 0;
@@ -62,9 +63,9 @@ bool ParseArguments(int argc, char** argv, CommandLineOptions& clo)
     return true;
 }
 
-void PrintOffset(const std::string& module, const std::string& name, uintptr_t offset)
+inline void PrintOffset(const std::string& module, const std::string& name, uintptr_t offset)
 {
-    printf("%-30s %-20s %#6lx\n", module.c_str(), name.c_str(), offset);
+    printf("%-30s %-20s %#8lx\n", module.c_str(), name.c_str(), offset);
 }
 
 int main(int argc, char *argv[])
@@ -79,12 +80,16 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    signatures_t signatureList = cfg.GetSignatures();
+    const signatures_t signatureList = cfg.GetSignatures();
     if (signatureList.empty()) {
         fprintf(stderr, "No signatures to process, check your config file for errors.\n");
         return 1;
     }
 
+    printf("Using configuration file: %s\n\n", clo.cfgFile.c_str());
+    printf("Name: %-10s\n", cfg.GetName().c_str());
+    printf("Version: %-10s\n\n", cfg.GetVersion().c_str());
+    printf("==================== Signatures ====================\n");
     printf("%-30s %-20s %-20s\n", "Module", "Name", "Offset");
 
     TProcess::Memory m(clo.pid);
