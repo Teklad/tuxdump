@@ -244,12 +244,9 @@ uintptr_t Memory::Region::Find(Memory& m, const std::string& pattern, size_t off
             for (size_t b = 0; b < readSize; ++b) {
                 size_t match = 0;
                 while (bin.data[match] == buf[b + match]) {
-                    match++;
+                    do {match++;} while (bin.mask[match]);
                     if (match == bin.size) {
                         return readAddr + b + offset;
-                    }
-                    while (bin.mask[match]) {
-                        match++;
                     }
                 }
             }
