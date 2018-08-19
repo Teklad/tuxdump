@@ -27,7 +27,7 @@ static uint8_t* HexTable()
 {
     static uint8_t hltbl[255] = {0};
     if (hltbl['1'] == 0) {
-        memset(hltbl, 256, sizeof(hltbl));
+        memset(hltbl, 0, sizeof(hltbl));
         hltbl['0'] = 0;
         hltbl['1'] = 1;
         hltbl['2'] = 2;
@@ -65,15 +65,14 @@ static uint8_t* HexTable()
 static bool Hex2Bin(const std::string& src, binary_t& bin)
 {
     const uint8_t* hl = HexTable();
+    const char* csrc = src.data();
     const size_t srcSize = src.size();
     if ((srcSize % 2) != 0) {
         return false;
     }
 
-    bin.size = 0;
-
     for (size_t i = 0; i < srcSize; i += 2) {
-        if (src[i] == '.') {
+        if (csrc[i] == '.') {
             bin.data[bin.size] = 0;
             bin.mask[bin.size] = true;
         } else {
@@ -235,7 +234,9 @@ uintptr_t Memory::Region::Find(Memory& m, const std::string& pattern, size_t off
     constexpr size_t bufSize = 0x1000;
     uint8_t buf[bufSize];
     binary_t bin;
-    Hex2Bin(pattern, bin);
+    if (!Hex2Bin(pattern, bin)) {
+        return 0;
+    }
     
     uintptr_t readAddr = this->start;
     size_t readSize = bufSize;
@@ -252,7 +253,7 @@ uintptr_t Memory::Region::Find(Memory& m, const std::string& pattern, size_t off
             }
         }
         readAddr += bufSize;
-        if (readSize > this->end - readAddr + bufSize) {
+        if (readSize > this->end - readAddr) {
             readSize = this->end - readAddr;
         }
     }
