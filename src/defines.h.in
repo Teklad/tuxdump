@@ -1,0 +1,15 @@
+#cmakedefine DEBUG_BUILD
+
+#ifdef DEBUG_BUILD
+#include <chrono>
+#include <cstdio>
+#define START_TIMER auto debugTimer1 = std::chrono::high_resolution_clock::now();
+#define STOP_TIMER  auto debugTimer2 = std::chrono::high_resolution_clock::now();\
+    auto debugTimerDuration = std::chrono::duration_cast<std::chrono::microseconds>(\
+            debugTimer2 - debugTimer1).count();\
+    printf("%s took %lu microseconds.\n", __func__, debugTimerDuration);
+#else
+#define START_TIMER
+#define STOP_TIMER
+#endif
+
