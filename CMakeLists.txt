@@ -1,21 +1,13 @@
 cmake_minimum_required(VERSION 3.2.0)
-project(tuxdump-csgo VERSION 0.1.0 LANGUAGES C)
+project(tuxdump VERSION 0.1.0 LANGUAGES CXX)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 
-find_package(libconfig REQUIRED)
+find_package(libconfig++ REQUIRED)
 
 if (CMAKE_BUILD_TYPE EQUAL "Debug")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
+    set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -pedantic")
 endif()
 
-add_executable(tuxdump
-    tuxdump.c
-    main.c
-)
-
-configure_file(csgo.cfg csgo.cfg COPYONLY)
-
-target_link_libraries(tuxdump
-    ${LIBCONFIG_LIBRARIES}
-    )
+configure_file(config/csgo.cfg csgo.cfg COPYONLY)
+add_subdirectory(src)
