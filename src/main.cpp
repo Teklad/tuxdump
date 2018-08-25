@@ -1,9 +1,15 @@
 #include "config.h"
 #include "memory.h"
+#include "defines.h"
 
 #include <getopt.h>
 #include <cstdio>
 
+#ifdef DEBUG_BUILD
+#include <cstring>
+#include <unistd.h>
+#include <map>
+#endif
 
 struct CommandLineOptions {
     std::string cfgFile = "csgo.cfg";
@@ -63,9 +69,9 @@ bool ParseArguments(int argc, char** argv, CommandLineOptions& clo)
     return true;
 }
 
-inline void PrintOffset(const std::string& module, const std::string& name, uintptr_t offset)
+inline void PrintOffset(const std::string& module, const std::string& name, uintptr_t offset, const std::string& comment = "")
 {
-    printf("%-30s %-20s %#8lx\n", module.c_str(), name.c_str(), offset);
+    printf("%-30s %-20s %#-16lx %-20s\n", module.c_str(), name.c_str(), offset, comment.c_str());
 }
 
 int main(int argc, char *argv[])
@@ -90,7 +96,11 @@ int main(int argc, char *argv[])
     printf("Name: %-10s\n", cfg.GetName().c_str());
     printf("Version: %-10s\n\n", cfg.GetVersion().c_str());
     printf("==================== Signatures ====================\n");
-    printf("%-30s %-20s %-20s\n", "Module", "Name", "Offset");
+    printf("%-30s %-20s %-16s %-20s\n", "Module", "Name", "Offset", "Comment");
+
+#ifdef DEBUG_BUILD
+    std::map<std::string, uintptr_t> offsets;
+#endif
 
     TProcess::Memory m(clo.pid);
     TProcess::Memory::Region region;
@@ -101,7 +111,10 @@ int main(int argc, char *argv[])
             if (addr == 0) {
                 PrintOffset(s.module, s.name, 0);
             } else {
-                PrintOffset(s.module, s.name, addr + s.extra - region.start);
+                PrintOffset(s.module, s.name, addr + s.extra - region.start, s.comment);
+#ifdef DEBUG_BUILD
+                offsets.emplace(s.name, addr + s.extra);
+#endif
             }
         }
     }

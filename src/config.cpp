@@ -72,6 +72,11 @@ signatures_t TConfig::GetSignatures()
             if (def.exists("relative")) {
                 def.lookupValue("relative", sig.relative);
             }
+            if (def.exists("comment")) {
+                def.lookupValue("comment", sig.comment);
+            } else {
+                sig.comment = "N/A";
+            }
             result.push_back(std::move(sig));
         }
     } catch (const libconfig::SettingNotFoundException& e) {

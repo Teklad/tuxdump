@@ -7,6 +7,7 @@ struct SignatureDefinition_t {
     std::string name;
     std::string module;
     std::string pattern;
+    std::string comment;
     int offset = 0;
     int extra = 0;
     int relative = 0;
