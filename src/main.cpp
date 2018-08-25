@@ -71,7 +71,7 @@ bool ParseArguments(int argc, char** argv, CommandLineOptions& clo)
 
 inline void PrintOffset(const std::string& module, const std::string& name, uintptr_t offset, const std::string& comment = "")
 {
-    printf("%-30s %-20s %#-16lx %-20s\n", module.c_str(), name.c_str(), offset, comment.c_str());
+    printf("%-30s %-30s %#-16lx %-20s\n", module.c_str(), name.c_str(), offset, comment.c_str());
 }
 
 int main(int argc, char *argv[])
@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
     printf("Name: %-10s\n", cfg.GetName().c_str());
     printf("Version: %-10s\n\n", cfg.GetVersion().c_str());
     printf("==================== Signatures ====================\n");
-    printf("%-30s %-20s %-16s %-20s\n", "Module", "Name", "Offset", "Comment");
+    printf("%-30s %-30s %-16s %-20s\n", "Module", "Name", "Offset", "Comment");
 
 #ifdef DEBUG_BUILD
     std::map<std::string, uintptr_t> offsets;
@@ -104,21 +104,40 @@ int main(int argc, char *argv[])
 
     TProcess::Memory m(clo.pid);
     TProcess::Memory::Region region;
+
     for (auto&& s : signatureList) {
         if (s.module == region.name || m.GetRegion(s.module, region)) {
-            uintptr_t addr = region.Find(m, s.pattern, s.offset);
-            addr = m.GetCallAddress(addr);
-            if (addr == 0) {
-                PrintOffset(s.module, s.name, 0);
-            } else {
-                PrintOffset(s.module, s.name, addr + s.extra - region.start, s.comment);
+            if (s.relative) {
+                uintptr_t addr = region.Find(m, s.pattern, s.offset);
+                addr = m.GetCallAddress(addr);
+                if (addr == 0) {
+                    PrintOffset(s.module, s.name, 0);
+                } else {
+                    PrintOffset(s.module, s.name, addr + s.extra - region.start, s.comment);
 #ifdef DEBUG_BUILD
-                offsets.emplace(s.name, addr + s.extra);
+                    offsets.emplace(s.name, addr + s.extra);
 #endif
+                }
+            } else {
+                uintptr_t addr = region.Find(m, s.pattern, s.offset);
+                int offset = 0;
+                if (!m.Read(addr, offset, 4)) {
+                    PrintOffset(s.module, s.name, 0);
+                } else {
+                    PrintOffset(s.module, s.name, offset, s.comment);
+                }
             }
         }
     }
-
+/*
+    m.GetRegion("client_panorama_client.so", region);
+    uintptr_t test = 0;
+    while (true) {
+        m.Read(region.start + 0x0286736c, test);
+        printf("%i\n", (int)test);
+        usleep(10000);
+    }
+*/
     return 0;
 }
 
