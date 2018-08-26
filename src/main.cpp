@@ -74,6 +74,16 @@ inline void PrintOffset(const std::string& module, const std::string& name, uint
     printf("%-30s %-30s %#-16lx %-20s\n", module.c_str(), name.c_str(), offset, comment.c_str());
 }
 
+void DumpNetVars(TProcess::Memory &m)
+{
+    TProcess::Memory::Region region;
+    m.GetRegion("client_panorama_client.so", region);
+    uintptr_t dwWorld = region.Find(m, "44545f5445576f726c64446563616c00", 0);
+    uintptr_t dwClasses;
+    m.Read(region.Find(m, (char*)&dwWorld, 0x2C), dwClasses);
+    printf("%#lx\n", dwClasses);
+}
+
 int main(int argc, char *argv[])
 {
     CommandLineOptions clo;
@@ -129,15 +139,6 @@ int main(int argc, char *argv[])
             }
         }
     }
-/*
-    m.GetRegion("client_panorama_client.so", region);
-    uintptr_t test = 0;
-    while (true) {
-        m.Read(region.start + 0x0286736c, test);
-        printf("%i\n", (int)test);
-        usleep(10000);
-    }
-*/
     return 0;
 }
 

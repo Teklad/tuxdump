@@ -10,4 +10,5 @@ if (CMAKE_BUILD_TYPE EQUAL "Debug")
 endif()
 
 configure_file(config/csgo.cfg csgo.cfg COPYONLY)
+
 add_subdirectory(src)
