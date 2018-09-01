@@ -1,8 +1,11 @@
 #include "config.h"
-#include "memory.h"
+#include "tprocess/process.h"
+#include "tprocess/region.h"
 #include "defines.h"
+#include "netvars.h"
 
 #include <getopt.h>
+#include <algorithm>
 #include <cstdio>
 
 #ifdef DEBUG_BUILD
@@ -13,6 +16,7 @@
 
 struct CommandLineOptions {
     std::string cfgFile = "csgo.cfg";
+    std::string outputStyle = "";
     int pid = 0;
 };
 
@@ -24,8 +28,9 @@ void PrintHelp()
     fprintf(stderr, "TuxDump - The Linux offset dumper\n");
     fprintf(stderr, "Usage: tuxdump [options] <pid>\n");
 
-    PrintOption("--config, -c <file>", "Alternative configuration file to use.");
-    PrintOption("--help, -h", "Show this message.");
+    PrintOption("--config=, -c <file>", "Alternative configuration file to use");
+    PrintOption("--dump-netvars=, -d [style]", "Dumps netvars to a file.  Available styles: raw, cpp");
+    PrintOption("--help, -h", "Show this message");
 
     fprintf(stderr, "\n");
 }
@@ -33,7 +38,8 @@ void PrintHelp()
 bool ParseArguments(int argc, char** argv, CommandLineOptions& clo)
 {
     const struct option longOptions[] = {
-        {"config", required_argument, 0, 'c'},
+        {"config", optional_argument, 0, 'c'},
+        {"dump-netvars", optional_argument, 0, 'd'}, 
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
@@ -41,7 +47,7 @@ bool ParseArguments(int argc, char** argv, CommandLineOptions& clo)
     int optionIndex, c;
 
     while (true) {
-        c = getopt_long(argc, argv, "c:h", longOptions, &optionIndex);
+        c = getopt_long(argc, argv, "c::d::h", longOptions, &optionIndex);
         if (c == -1) {
             break;
         }
@@ -50,7 +56,16 @@ bool ParseArguments(int argc, char** argv, CommandLineOptions& clo)
             case 0:
                 break;
             case 'c':
-                clo.cfgFile = optarg;
+                if (optarg != NULL) {
+                    clo.cfgFile = optarg;
+                }
+                break;
+            case 'd':
+                if (optarg != NULL) {
+                    clo.outputStyle = optarg;
+                } else {
+                    clo.outputStyle = "raw";
+                }
                 break;
             default:
                 return false;
@@ -74,14 +89,16 @@ inline void PrintOffset(const std::string& module, const std::string& name, uint
     printf("%-30s %-30s %#-16lx %-20s\n", module.c_str(), name.c_str(), offset, comment.c_str());
 }
 
-void DumpNetVars(TProcess::Memory &m)
+uintptr_t GetNVOffset(TProcess::Process& m)
 {
-    TProcess::Memory::Region region;
+    TProcess::Region region;
     m.GetRegion("client_panorama_client.so", region);
-    uintptr_t dwWorld = region.Find(m, "44545f5445576f726c64446563616c00", 0);
-    uintptr_t dwClasses;
-    m.Read(region.Find(m, (char*)&dwWorld, 0x2C), dwClasses);
-    printf("%#lx\n", dwClasses);
+
+    uintptr_t ccsp = region.Find("488b..........8b....48....48....75..e9........66", 2);
+    ccsp = region.GetCallAddress(ccsp);
+    ccsp = m.Read<uintptr_t>(ccsp);
+    ccsp = m.Read<uintptr_t>(ccsp);
+    return ccsp;
 }
 
 int main(int argc, char *argv[])
@@ -108,30 +125,29 @@ int main(int argc, char *argv[])
     printf("==================== Signatures ====================\n");
     printf("%-30s %-30s %-16s %-20s\n", "Module", "Name", "Offset", "Comment");
 
-#ifdef DEBUG_BUILD
-    std::map<std::string, uintptr_t> offsets;
-#endif
+    TProcess::Process m;
+    TProcess::Region region;
 
-    TProcess::Memory m(clo.pid);
-    TProcess::Memory::Region region;
+    if (clo.pid > 0) {
+        m.SetPID(clo.pid);
+    }
+
+    m.ParseMaps();
 
     for (auto&& s : signatureList) {
-        if (s.module == region.name || m.GetRegion(s.module, region)) {
+        if (s.module.compare(region.name) == 0 || m.GetRegion(s.module.c_str(), region)) {
             if (s.relative) {
-                uintptr_t addr = region.Find(m, s.pattern, s.offset);
-                addr = m.GetCallAddress(addr);
+                uintptr_t addr = region.Find(s.pattern.c_str(), s.offset);
+                addr = region.GetCallAddress(addr);
                 if (addr == 0) {
                     PrintOffset(s.module, s.name, 0);
                 } else {
                     PrintOffset(s.module, s.name, addr + s.extra - region.start, s.comment);
-#ifdef DEBUG_BUILD
-                    offsets.emplace(s.name, addr + s.extra);
-#endif
                 }
             } else {
-                uintptr_t addr = region.Find(m, s.pattern, s.offset);
-                int offset = 0;
-                if (!m.Read(addr, offset, 4)) {
+                uintptr_t addr = region.Find(s.pattern.c_str(), s.offset);
+                int offset = m.Read<int>(addr);
+                if (offset == 0) {
                     PrintOffset(s.module, s.name, 0);
                 } else {
                     PrintOffset(s.module, s.name, offset, s.comment);
@@ -139,6 +155,20 @@ int main(int argc, char *argv[])
             }
         }
     }
+
+    printf("\n");
+
+    if (!clo.outputStyle.empty()) {
+        std::transform(clo.outputStyle.begin(), clo.outputStyle.end(), clo.outputStyle.begin(), ::tolower);
+        NetVarOutputStyle style = NetVarOutputStyle::Raw;
+        if (clo.outputStyle == "cpp") {
+            style = NetVarOutputStyle::CPlusPlus;
+        }
+
+        NetVarManager nvmgr(m.PID(), GetNVOffset(m));
+        nvmgr.Dump(style);
+    }
+
     return 0;
 }
 

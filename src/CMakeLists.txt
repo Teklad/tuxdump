@@ -1,11 +1,12 @@
 add_executable(tuxdump
     main.cpp
-    memory.cpp
     config.cpp
+    netvars.cpp
 )
 
 target_link_libraries(tuxdump
     ${LIBCONFIG++_LIBRARIES}
+    tprocess
 )
 
 set_target_properties(tuxdump
@@ -21,4 +22,4 @@ endif()
 
 configure_file(defines.h.in defines.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
-
+add_subdirectory(tprocess)
