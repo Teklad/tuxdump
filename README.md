@@ -22,6 +22,10 @@ sudo tuxdump --dump-netvars=cpp $(pidof csgo_linux64)
 ```
 
 
+### Build requirements
+* libconfig
+
+
 ### Building the project
 In order to build the project you'll need to use the following commands from the project directory:
 ```bash
