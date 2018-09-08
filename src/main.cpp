@@ -4,15 +4,12 @@
 #include "defines.h"
 #include "netvars.h"
 
-#include <getopt.h>
 #include <algorithm>
-#include <cstdio>
 
-#ifdef DEBUG_BUILD
-#include <cstring>
+#include <getopt.h>
+#include <cstdio>
 #include <unistd.h>
-#include <map>
-#endif
+#include <sys/types.h>
 
 struct CommandLineOptions {
     std::string cfgFile = "csgo.cfg";
@@ -103,12 +100,19 @@ uintptr_t GetNVOffset(TProcess::Process& m)
 
 int main(int argc, char *argv[])
 {
+
     CommandLineOptions clo;
     TConfig cfg;
     if (!ParseArguments(argc, argv, clo)) {
         PrintHelp();
         return 1;
     }
+
+    if (getuid() != 0) {
+        fprintf(stderr, "This process requires root priveleges to work properly.\n");
+        return 1;
+    }
+
     if (!cfg.ReadFile(clo.cfgFile)) {
         return 1;
     }
