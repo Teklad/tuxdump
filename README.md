@@ -38,7 +38,7 @@ make
 If you run the project without any parameters you'll get the following output which lists the currently available flags:
 ```bash
 TuxDump - The Linux offset dumper
-Usage: tuxdump [options] <pid>
+Usage: tuxdump [options]
     --config=, -c <file>      Alternative configuration file to use
     --dump-netvars=, -d [style] Dumps netvars to a file.  Available styles: raw, cpp
     --help, -h                Show this message
