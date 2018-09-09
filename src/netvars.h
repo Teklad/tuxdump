@@ -63,11 +63,11 @@ enum class NetVarOutputStyle {
 
 class NetVarManager : public TProcess::Memory {
     struct NetVar_Prop {
-        char name[64];
+        std::string name;
         size_t offset;
     };
     struct NetVar_Table {
-        char name[64];
+        std::string name;
         NetVar_Prop prop;
         size_t offset;
         std::vector<NetVar_Prop> child_props;
@@ -77,13 +77,12 @@ class NetVarManager : public TProcess::Memory {
         NetVarManager(uintptr_t addr);
         ~NetVarManager();
         void Dump(NetVarOutputStyle style = NetVarOutputStyle::Raw);
-        void DumpTableCPP(const NetVar_Table& table, size_t indent = 0);
-        void DumpTableRaw(const NetVar_Table& table, size_t indent = 0);
+        void DumpTableCPP(const NetVar_Table& table, size_t indent = 2);
+        void DumpTableRaw(const NetVar_Table& table, size_t indent = 1);
+    private:
+        void PrintIndent(size_t indents = 1);
+        NetVar_Table LoadTable(RecvTable& recvTable);
     private:
         std::vector<NetVar_Table> m_data;
-        TProcess::Region clientRegion;
-        NetVarOutputStyle m_style;
-        FILE* m_dumpFile = stdout;
-        NetVar_Table LoadTable(RecvTable& recvTable);
-        void PrintIndent(size_t indents);
+        FILE* m_dumpFile = nullptr;
 };
