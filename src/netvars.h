@@ -74,7 +74,7 @@ class NetVarManager : public TProcess::Memory {
         std::vector<NetVar_Table> child_tables;
     };
     public:
-        NetVarManager(int pid, uintptr_t addr);
+        NetVarManager(uintptr_t addr);
         ~NetVarManager();
         void Dump(NetVarOutputStyle style = NetVarOutputStyle::Raw);
         void DumpTableCPP(const NetVar_Table& table, size_t indent = 0);

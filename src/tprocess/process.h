@@ -13,14 +13,14 @@ class Process : public Memory {
     public:
         Process() = default;
         ~Process() {};
-        bool Attach(const char* name, size_t timeout);
+        bool Attach(const std::string& name);
+        bool Attach(const char* name);
         bool ProcessPresent() const;
-        bool GetRegion(const char* name, Region& region_out) const;
-        bool HasRegion(const char* name) const;
+        bool GetRegion(const char* name, Region& region_out);
+        bool HasRegion(const char* name);
         bool ParseMaps();
     private:
         char m_szProcDir[256];
-        void UpdateRegion(const char* name, uintptr_t start, uintptr_t end);
         std::vector<Region> m_regions;
 };
 

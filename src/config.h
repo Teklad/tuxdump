@@ -24,6 +24,7 @@ class TConfig {
         bool ReadFile(const char* file);
         bool ReadFile(const std::string& file);
         std::string GetName();
+        std::string GetProcessName();
         std::string GetVersion();
         signatures_t GetSignatures();
     private:

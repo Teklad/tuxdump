@@ -1,53 +1,66 @@
 #include "process.h"
 
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
 
 #include <sys/stat.h>
 #include <dirent.h>
 #include <libgen.h>
-#include <limits.h>
 #include <unistd.h>
 
 namespace TProcess {
 
-bool Process::Attach(const char* name, size_t timeout)
+int Memory::m_iPid = -1;
+/**
+ * @brief Finds a process with the given name and binds m_iPid to it
+ *        for easier memory transactions
+ *
+ * @param name The name of the process
+ *
+ * @return true if the process was found, false otherwise
+ */
+bool Process::Attach(const char* name)
 {
-    DIR *procDir = opendir("/proc");
-    if (!procDir) {
+    DIR* procDir = opendir("/proc");
+    if (procDir == nullptr) {
         return false;
     }
-    while (timeout > 0 && this->PID() == -1) {
-        struct dirent* dirEntry;
-        while ((dirEntry = readdir(procDir)) != nullptr) {
-            int id = strtol(dirEntry->d_name, NULL, 10);
-            if (id != 0) {
-                char symlinkPath[PATH_MAX];
-                char exePath[PATH_MAX];
-                snprintf(symlinkPath, PATH_MAX, "/proc/%i/exe", id);
-                ssize_t bytesRead = readlink(symlinkPath, exePath, PATH_MAX);
-                if (bytesRead == -1) {
-                    continue;
-                }
-                exePath[bytesRead] = 0;
+
+    struct dirent* dirEntry;
+    while ((dirEntry = readdir(procDir)) != nullptr) {
+        int id = strtol(dirEntry->d_name, nullptr, 10);
+        if (id > 0) {
+            char symlinkPath[FILENAME_MAX] = {0};
+            char exePath[FILENAME_MAX] = {0};
+
+            snprintf(symlinkPath, FILENAME_MAX, "/proc/%i/exe", id);
+
+            ssize_t bytesRead = readlink(symlinkPath, exePath, FILENAME_MAX);
+            if (bytesRead > 0) {
                 const char* exeName = basename(exePath);
                 if (strcmp(exeName, name) == 0) {
-                    this->SetPID(id);
                     const char* dirName = dirname(symlinkPath);
                     strcpy(m_szProcDir, dirName);
+                    m_iPid = id;
                     closedir(procDir);
                     return true;
                 }
             }
         }
-        timeout--;
-        sleep(1);
     }
     closedir(procDir);
     return false;
 }
 
+bool Process::Attach(const std::string& name)
+{
+    return this->Attach(name.c_str());
+}
+
+/**
+ * @brief Verifies that the attached process is running
+ *
+ * @return true if it is, false otherwise
+ */
 bool Process::ProcessPresent() const
 {
     struct stat st;
@@ -63,10 +76,11 @@ bool Process::ProcessPresent() const
  *
  * @return bool true if the region exists, otherwise false
  */
-bool Process::GetRegion(const char* name, Region& region_out) const
+bool Process::GetRegion(const char* name, Region& region_out)
 {
-    for (auto&& r : m_regions) {
-        if (strcmp(r.name, name) == 0) {
+    for (Region& r : m_regions) {
+        char* fileName = basename(r.pathName);
+        if (strcmp(fileName, name) == 0) {
             region_out = r;
             return true;
         }
@@ -81,44 +95,16 @@ bool Process::GetRegion(const char* name, Region& region_out) const
  *
  * @return bool true if the region exists, otherwise false
  */
-bool Process::HasRegion(const char* name) const
+bool Process::HasRegion(const char* name)
 {
-    for (auto &&r : m_regions) {
-        if (strcmp(r.name, name) == 0) {
+    for (Region& r : m_regions) {
+        char* fileName = basename(r.pathName);
+        if (strcmp(fileName, name) == 0) {
             return true;
         }
     }
     return false;
 }
-
-/**
- * @brief Given a region name, tries to update the internal regions vector
- *        with updated offsets.  If a match exists but the memory is not
- *        contiguous, this will create a new entry to prevent overlapping.
- *
- * @param name Short name of the region to update
- * @param start Start address of the region
- * @param end   End address of the region
- */
-void Process::UpdateRegion(const char* name, uintptr_t start, uintptr_t end)
-{
-    for (auto&& r : m_regions) {
-        if (strcmp(r.name, name) == 0) {
-            if (start == r.end) {
-                r.end = end;
-            } else {
-                continue;
-            }
-            if (start < r.start) {
-                r.start = start;
-            }
-            return;
-        }
-    }
-    TProcess::Region region(name, this->PID(), start, end);
-    m_regions.push_back(std::move(region));
-}
-
 
 /**
  * @brief Parses /proc/$pid/maps and updates the internal regions vector
@@ -128,35 +114,50 @@ void Process::UpdateRegion(const char* name, uintptr_t start, uintptr_t end)
  */
 bool Process::ParseMaps()
 {
-    constexpr size_t bufSize = 0x1000;
-    char maps_path[PATH_MAX];
-    snprintf(maps_path, PATH_MAX, "/proc/%i/maps", this->PID());
-    FILE* fp = fopen(maps_path, "r");
-    if (fp) {
-        char line[bufSize];
-        while (fgets(line, sizeof(line), fp)) {
-            line[strlen(line) - 1] = 0;
-            char* sep = strchr(line, '-');
-            char* name = strrchr(line, '/');
-            if (sep != NULL) {
-                uintptr_t start = strtoul(line, NULL, 16);
-                uintptr_t end = strtoul(sep + 1, NULL, 16);
-                if (name == NULL) {
-                    name = strrchr(line, ' ');
-                    if (name == NULL) {
-                        continue;
-                    }
-                }
-                name += 1;
-                if (strlen(name) > 0) {
-                    this->UpdateRegion(name, start, end);
-                }
-            }
-        }
-        fclose(fp);
-        return true;
+    char mapsPath[FILENAME_MAX] = {0};
+    snprintf(mapsPath, FILENAME_MAX, "/proc/%i/maps", m_iPid);
+
+    FILE* mapsFile = fopen(mapsPath, "r");
+    if (mapsFile == nullptr) {
+        return false;
     }
-    return false;
+
+    char *line = nullptr;
+    size_t len = 0;
+
+    while (getline(&line, &len, mapsFile) != -1) {
+        char pathName[FILENAME_MAX] = {0};
+        uintptr_t start, end;
+
+        bool ret = sscanf(line, "%lx-%lx %*4s %*p %*2d:%*2d %*d %[^\t\n]",
+                &start, &end, pathName);
+
+        if (ret != 1) {
+            fclose(mapsFile);
+            free(line);
+            return false;
+        }
+
+        if (!m_regions.empty() && strcmp(m_regions.back().pathName, pathName) == 0) {
+            if (m_regions.back().start > start) {
+                m_regions.back().start = start;
+            }
+            if (m_regions.back().end < end) {
+                m_regions.back().end = end;
+            }
+        } else {
+            Region region;
+            region.pid = m_iPid;
+            region.start = start;
+            region.end = end;
+            strcpy(region.pathName, pathName);
+            m_regions.push_back(region);
+        }
+
+    }
+    fclose(mapsFile);
+    free(line);
+    return true;
 }
 
 }

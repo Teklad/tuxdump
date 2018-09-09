@@ -42,6 +42,16 @@ std::string TConfig::GetVersion()
     return result;
 }
 
+std::string TConfig::GetProcessName()
+{
+    const libconfig::Setting& root = m_cfg.getRoot();
+    std::string result;
+    if (root.exists("process")) {
+        root.lookupValue("process", result);
+    }
+    return result;
+}
+
 signatures_t TConfig::GetSignatures()
 {
     const libconfig::Setting& root = m_cfg.getRoot();

@@ -25,7 +25,6 @@ static uint8_t* HexTable()
 {
     static uint8_t hltbl[255] = {0};
     if (hltbl['1'] == 0) {
-        memset(hltbl, 0, sizeof(hltbl));
         hltbl['0'] = 0;
         hltbl['1'] = 1;
         hltbl['2'] = 2;
@@ -58,7 +57,7 @@ static uint8_t* HexTable()
  *
  * @param src Source string to process
  *
- * @return std::vector<bool, uint8_t> (i.e. wildcard,byte)
+ * @return true if conversion succeeded, otherwise false.
  */
 static bool Hex2Bin(const char* src, binary_t& bin)
 {
@@ -86,28 +85,12 @@ static bool Hex2Bin(const char* src, binary_t& bin)
     return true;
 }
 
-Region::Region()
-{
-    memset(this->name, 0, sizeof(this->name));
-    this->pid = -1;
-    this->start = 0;
-    this->end = 0;
-}
-
-Region::Region(const char* name, int pid, uintptr_t start, uintptr_t end)
-{
-    strcpy(this->name, name);
-    this->pid = pid;
-    this->start = start;
-    this->end = end;
-}
-
-bool Region::ReadAddress(uintptr_t addr, void* result, size_t len)
+size_t Region::ReadAddress(uintptr_t addr, void* result, size_t len)
 {
     struct iovec local = {result, len};
     struct iovec remote = {reinterpret_cast<void*>(addr), len};
-    ssize_t readLen = process_vm_readv(this->pid, &local, 1, &remote, 1, 0);
-    return (readLen == static_cast<ssize_t>(len));
+    ssize_t readLength = process_vm_readv(this->pid, &local, 1, &remote, 1, 0);
+    return (readLength > 0 ? readLength : 0);
 }
 
 uintptr_t Region::GetAbsoluteAddress(uintptr_t addr, size_t offset, size_t extra)
@@ -147,28 +130,26 @@ uintptr_t Region::GetCallAddress(uintptr_t addr)
  */
 uintptr_t Region::Find(const char* pattern, size_t offset)
 {
-    constexpr size_t bufSize = 0x1000;
-    uint8_t buf[bufSize];
+    uint8_t buf[BUFSIZ] = {0};
     binary_t bin;
     if (!Hex2Bin(pattern, bin)) {
         return 0;
     }
 
-    size_t readSize = bufSize;
+    size_t readSize = BUFSIZ;
     uintptr_t readAddr = this->start;
     while (readAddr < this->end) {
-        if (this->ReadAddress(readAddr, buf, readSize)) {
-            for (size_t b = 0; b < readSize; ++b) {
-                size_t match = 0;
-                while (bin.data[match] == buf[b + match]) {
-                    do {match++;} while (bin.mask[match]);
-                    if (match == bin.size) {
-                        return readAddr + b + offset;
-                    }
+        size_t totalRead = this->ReadAddress(readAddr, buf, readSize);
+        for (size_t b = 0; b < totalRead; ++b) {
+            size_t match = 0;
+            while (match < bin.size && bin.data[match] == buf[b + match]) {
+                do {match++;} while (bin.mask[match]);
+                if (match == bin.size) {
+                    return readAddr + b + offset;
                 }
             }
         }
-        readAddr += bufSize;
+        readAddr += BUFSIZ;
         if (readSize > this->end - readAddr) {
             readSize = this->end - readAddr;
         }

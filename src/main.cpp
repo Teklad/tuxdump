@@ -14,7 +14,6 @@
 struct CommandLineOptions {
     std::string cfgFile = "csgo.cfg";
     std::string outputStyle = "";
-    int pid = 0;
 };
 
 void PrintHelp()
@@ -23,7 +22,7 @@ void PrintHelp()
         fprintf(stderr, "    %-25s %-10s\n", option, desc);
     };
     fprintf(stderr, "TuxDump - The Linux offset dumper\n");
-    fprintf(stderr, "Usage: tuxdump [options] <pid>\n");
+    fprintf(stderr, "Usage: tuxdump [options]\n");
 
     PrintOption("--config=, -c <file>", "Alternative configuration file to use");
     PrintOption("--dump-netvars=, -d [style]", "Dumps netvars to a file.  Available styles: raw, cpp");
@@ -70,11 +69,6 @@ bool ParseArguments(int argc, char** argv, CommandLineOptions& clo)
     }
 
     if (optind < argc) {
-        clo.pid = strtoul(argv[optind], NULL, 10);
-        if (clo.pid == 0) {
-            return false;
-        }
-    } else {
         return false;
     }
 
@@ -124,6 +118,7 @@ int main(int argc, char *argv[])
 
     printf("Using configuration file: %s\n\n", clo.cfgFile.c_str());
     printf("Name: %-10s\n", cfg.GetName().c_str());
+    printf("Process: %-10s\n", cfg.GetProcessName().c_str());
     printf("Version: %-10s\n\n", cfg.GetVersion().c_str());
     printf("==================== Signatures ====================\n");
     printf("%-30s %-30s %-16s %-20s\n", "Module", "Name", "Offset", "Comment");
@@ -131,14 +126,15 @@ int main(int argc, char *argv[])
     TProcess::Process m;
     TProcess::Region region;
 
-    if (clo.pid > 0) {
-        m.SetPID(clo.pid);
+    if (!m.Attach(cfg.GetProcessName())) {
+        fprintf(stderr, "Failed to attach to process '%s', please make sure it is running.", cfg.GetProcessName().c_str());
+        return 1;
     }
 
     m.ParseMaps();
 
     for (auto&& s : signatureList) {
-        if (s.module.compare(region.name) == 0 || m.GetRegion(s.module.c_str(), region)) {
+        if (m.GetRegion(s.module.c_str(), region)) {
             if (s.relative) {
                 uintptr_t addr = 0;
                 for (size_t i = 0; i < s.offset.size(); ++i) {
@@ -176,7 +172,7 @@ int main(int argc, char *argv[])
             style = NetVarOutputStyle::CPlusPlus;
         }
 
-        NetVarManager nvmgr(m.PID(), GetNVOffset(m));
+        NetVarManager nvmgr(GetNVOffset(m));
         nvmgr.Dump(style);
     }
     return 0;

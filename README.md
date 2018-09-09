@@ -3,7 +3,7 @@ A Linux offset dumper which, given a config file, can use the data signatures to
 
 A basic usage example:
 ```bash
-sudo tuxdump $(pidof csgo_linux64)
+sudo tuxdump
 Module                         Name                 Offset              
 engine_client.so               dwClientState        0xdfdce8
 client_panorama_client.so      dwEntityList         0x1ff26e8
@@ -18,7 +18,7 @@ You can also dump netvars to a file with the **--dump-netvars** command line opt
 
 
 ```bash
-sudo tuxdump --dump-netvars=cpp $(pidof csgo_linux64)
+sudo tuxdump --dump-netvars=cpp
 ```
 
 

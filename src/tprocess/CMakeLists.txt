@@ -1,4 +1,4 @@
-add_library(tprocess
+add_library(tprocess STATIC
     process.cpp
     region.cpp
 )

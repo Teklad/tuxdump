@@ -33,9 +33,8 @@ void NetVarManager::PrintIndent(size_t indents)
     }
 }
 
-NetVarManager::NetVarManager(int pid, uintptr_t addr)
+NetVarManager::NetVarManager(uintptr_t addr)
 {
-    this->SetPID(pid);
     auto cc = this->Read<ClientClass>(addr);
     while (true) {
         auto recvTable = this->Read<RecvTable>(cc.m_pRecvTable);
@@ -57,12 +56,12 @@ NetVarManager::NetVar_Table NetVarManager::LoadTable(RecvTable& recvTable)
     NetVar_Table table;
 
     table.offset = 0;
-    this->ReadArray(recvTable.m_pNetTableName, table.name, 64);
+    this->ReadToBuffer(recvTable.m_pNetTableName, table.name, 64);
 
     for (int i = 0; i < recvTable.m_nProps; ++i) {
         char propName[64];
         auto prop = this->Read<RecvProp>(recvTable.m_pProps + i * sizeof(RecvProp));
-        this->ReadArray(prop.m_pVarName, propName, 64);
+        this->ReadToBuffer(prop.m_pVarName, propName, 64);
         if (!prop.m_pVarName || isdigit(propName[0])) {
             continue;
         }
