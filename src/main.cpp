@@ -91,10 +91,9 @@ uintptr_t GetNVOffset(TProcess::Process& m)
     TProcess::Region region;
     m.GetRegion("client_panorama_client.so", region);
 
-    uintptr_t ccsp = region.Find("488b..........8b....48....48....75..e9........66", 2);
+    uintptr_t ccsp = region.Find("48....085b415c415d5dc3....55488d", 26);
     ccsp = region.GetCallAddress(ccsp);
-    ccsp = m.Read<uintptr_t>(ccsp);
-    ccsp = m.Read<uintptr_t>(ccsp);
+
     return ccsp;
 }
 
@@ -163,7 +162,8 @@ int main(int argc, char *argv[])
     printf("\n");
 
     if (!clo.outputStyle.empty()) {
-        std::transform(clo.outputStyle.begin(), clo.outputStyle.end(), clo.outputStyle.begin(), ::tolower);
+        std::transform(clo.outputStyle.begin(), clo.outputStyle.end(), clo.outputStyle.begin(),
+                ::tolower);
         NetVarOutputStyle style = NetVarOutputStyle::Raw;
         if (clo.outputStyle == "cpp") {
             style = NetVarOutputStyle::CPlusPlus;
@@ -172,7 +172,6 @@ int main(int argc, char *argv[])
         NetVarManager nvmgr(m.PID(), GetNVOffset(m));
         nvmgr.Dump(style);
     }
-
     return 0;
 }
 
