@@ -5,7 +5,7 @@
 #include <sys/uio.h>
 
 namespace TProcess {
-
+constexpr size_t TPROC_READ_SIZE = 8192;
 /**
  * @brief Structure to hold pattern information
  */
@@ -89,14 +89,14 @@ size_t Region::ReadAddress(uintptr_t addr, void* result, size_t len)
 {
     struct iovec local = {result, len};
     struct iovec remote = {reinterpret_cast<void*>(addr), len};
-    ssize_t readLength = process_vm_readv(this->pid, &local, 1, &remote, 1, 0);
+    ssize_t readLength = process_vm_readv(pid, &local, 1, &remote, 1, 0);
     return (readLength > 0 ? readLength : 0);
 }
 
 uintptr_t Region::GetAbsoluteAddress(uintptr_t addr, size_t offset, size_t extra)
 {
     int32_t code;
-    if (this->ReadAddress(addr + offset, &code, sizeof(int32_t))) {
+    if (ReadAddress(addr + offset, &code, sizeof(int32_t))) {
         return addr + code + extra;
     }
     return 0;
@@ -112,7 +112,7 @@ uintptr_t Region::GetAbsoluteAddress(uintptr_t addr, size_t offset, size_t extra
  */
 uintptr_t Region::GetCallAddress(uintptr_t addr)
 {
-    return this->GetAbsoluteAddress(addr, 1, 5);
+    return GetAbsoluteAddress(addr, 1, 5);
 }
 
 /**
@@ -130,16 +130,16 @@ uintptr_t Region::GetCallAddress(uintptr_t addr)
  */
 uintptr_t Region::Find(const std::string& pattern, size_t offset)
 {
-    uint8_t buf[BUFSIZ] = {0};
+    uint8_t buf[TPROC_READ_SIZE] = {0};
     binary_t bin;
     if (!Hex2Bin(pattern.c_str(), bin)) {
         return 0;
     }
 
-    size_t readSize = BUFSIZ;
-    uintptr_t readAddr = this->start;
-    while (readAddr < this->end) {
-        size_t totalRead = this->ReadAddress(readAddr, buf, readSize);
+    size_t readSize = TPROC_READ_SIZE;
+    uintptr_t readAddr = start;
+    while (readAddr < end) {
+        size_t totalRead = ReadAddress(readAddr, buf, readSize);
         for (size_t b = 0; b < totalRead; ++b) {
             size_t match = 0;
             while (bin.data[match] == buf[b + match]) {
@@ -149,9 +149,9 @@ uintptr_t Region::Find(const std::string& pattern, size_t offset)
                 }
             }
         }
-        readAddr += BUFSIZ;
-        if (readSize > this->end - readAddr) {
-            readSize = this->end - readAddr;
+        readAddr += TPROC_READ_SIZE;
+        if (readSize > end - readAddr) {
+            readSize = end - readAddr;
         }
     }
     return 0;

@@ -17,14 +17,14 @@ class Memory {
          *
          * @return Integer containing the PID of the process
          */
-        inline int PID() { return this->m_iPid; }
+        inline int PID() { return m_iPid; }
         
         /**
          * @brief Links the memory object to a new PID
          *
          * @param pid The pid to link to
          */
-        inline void SetPID(int pid) { this->m_iPid = pid; }
+        inline void SetPID(int pid) { m_iPid = pid; }
 
         /**
          * @brief Reads the memory address in the process, returning T if the
@@ -54,7 +54,7 @@ class Memory {
         template<typename T>
         inline T Read(uintptr_t addr, bool* success)
         {
-            return this->Read<T>(addr, sizeof(T), success);
+            return Read<T>(addr, sizeof(T), success);
         }
 
         inline bool ReadToBuffer(uintptr_t addr, void* buffer, size_t len)
