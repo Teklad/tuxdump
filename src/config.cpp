@@ -64,7 +64,9 @@ signatures_t TConfig::GetSignatures()
             def.lookupValue("pattern", sig.pattern);
 
             if (def.exists("offset")) {
-                def.lookupValue("offset", sig.offset);
+                for (auto&& offset : def["offset"]) {
+                    sig.offset.push_back(offset);
+                }
             }
             if (def.exists("extra")) {
                 def.lookupValue("extra", sig.extra);

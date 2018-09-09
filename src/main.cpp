@@ -140,15 +140,22 @@ int main(int argc, char *argv[])
     for (auto&& s : signatureList) {
         if (s.module.compare(region.name) == 0 || m.GetRegion(s.module.c_str(), region)) {
             if (s.relative) {
-                uintptr_t addr = region.Find(s.pattern.c_str(), s.offset);
-                addr = region.GetCallAddress(addr);
+                uintptr_t addr = 0;
+                for (size_t i = 0; i < s.offset.size(); ++i) {
+                    if (i == 0) {
+                        addr = region.Find(s.pattern.c_str(), s.offset[i]);
+                        addr = region.GetCallAddress(addr);
+                    } else {
+                        addr = m.Read<uintptr_t>(addr + s.offset[i]);
+                    }
+                }
                 if (addr == 0) {
                     PrintOffset(s.module, s.name, 0);
                 } else {
                     PrintOffset(s.module, s.name, addr + s.extra - region.start, s.comment);
                 }
             } else {
-                uintptr_t addr = region.Find(s.pattern.c_str(), s.offset);
+                uintptr_t addr = region.Find(s.pattern.c_str(), s.offset[0]);
                 int offset = m.Read<int>(addr);
                 if (offset == 0) {
                     PrintOffset(s.module, s.name, 0);

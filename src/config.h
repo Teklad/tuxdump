@@ -8,7 +8,7 @@ struct SignatureDefinition_t {
     std::string module;
     std::string pattern;
     std::string comment;
-    int offset = 0;
+    std::vector<int> offset;
     int extra = 0;
     int relative = 0;
 };
