@@ -128,11 +128,11 @@ uintptr_t Region::GetCallAddress(uintptr_t addr)
  *
  * @return A memory address beginning at the start of the pattern + offset
  */
-uintptr_t Region::Find(const char* pattern, size_t offset)
+uintptr_t Region::Find(const std::string& pattern, size_t offset)
 {
     uint8_t buf[BUFSIZ] = {0};
     binary_t bin;
-    if (!Hex2Bin(pattern, bin)) {
+    if (!Hex2Bin(pattern.c_str(), bin)) {
         return 0;
     }
 
@@ -142,7 +142,7 @@ uintptr_t Region::Find(const char* pattern, size_t offset)
         size_t totalRead = this->ReadAddress(readAddr, buf, readSize);
         for (size_t b = 0; b < totalRead; ++b) {
             size_t match = 0;
-            while (match < bin.size && bin.data[match] == buf[b + match]) {
+            while (bin.data[match] == buf[b + match]) {
                 do {match++;} while (bin.mask[match]);
                 if (match == bin.size) {
                     return readAddr + b + offset;

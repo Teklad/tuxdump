@@ -14,10 +14,9 @@ class Process : public Memory {
         Process() = default;
         ~Process() {};
         bool Attach(const std::string& name);
-        bool Attach(const char* name);
         bool ProcessPresent() const;
-        bool GetRegion(const char* name, Region& region_out);
-        bool HasRegion(const char* name);
+        bool GetRegion(const std::string& name, Region& region_out);
+        bool HasRegion(const std::string& name);
         bool ParseMaps();
     private:
         char m_szProcDir[256];

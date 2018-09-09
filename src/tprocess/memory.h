@@ -51,6 +51,12 @@ class Memory {
             return value;
         }
 
+        template<typename T>
+        inline T Read(uintptr_t addr, bool* success)
+        {
+            return this->Read<T>(addr, sizeof(T), success);
+        }
+
         inline bool ReadToBuffer(uintptr_t addr, void* buffer, size_t len)
         {
             struct iovec local = {buffer, len};

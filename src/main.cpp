@@ -127,14 +127,15 @@ int main(int argc, char *argv[])
     TProcess::Region region;
 
     if (!m.Attach(cfg.GetProcessName())) {
-        fprintf(stderr, "Failed to attach to process '%s', please make sure it is running.", cfg.GetProcessName().c_str());
+        fprintf(stderr, "Failed to attach to process '%s', please make sure it is running.\n",
+                cfg.GetProcessName().c_str());
         return 1;
     }
 
     m.ParseMaps();
 
     for (auto&& s : signatureList) {
-        if (m.GetRegion(s.module.c_str(), region)) {
+        if (m.GetRegion(s.module, region)) {
             if (s.relative) {
                 uintptr_t addr = 0;
                 for (size_t i = 0; i < s.offset.size(); ++i) {

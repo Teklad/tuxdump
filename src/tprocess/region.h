@@ -3,12 +3,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <string>
 
 namespace TProcess {
 
 class Region {
     public:
-        uintptr_t Find(const char* pattern, size_t offset);
+        uintptr_t Find(const std::string& pattern, size_t offset);
         uintptr_t GetCallAddress(uintptr_t addr);
         uintptr_t GetAbsoluteAddress(uintptr_t addr, size_t offset, size_t extra);
     private:

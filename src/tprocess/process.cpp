@@ -18,7 +18,7 @@ int Memory::m_iPid = -1;
  *
  * @return true if the process was found, false otherwise
  */
-bool Process::Attach(const char* name)
+bool Process::Attach(const std::string& name)
 {
     DIR* procDir = opendir("/proc");
     if (procDir == nullptr) {
@@ -37,7 +37,7 @@ bool Process::Attach(const char* name)
             ssize_t bytesRead = readlink(symlinkPath, exePath, FILENAME_MAX);
             if (bytesRead > 0) {
                 const char* exeName = basename(exePath);
-                if (strcmp(exeName, name) == 0) {
+                if (strcmp(exeName, name.c_str()) == 0) {
                     const char* dirName = dirname(symlinkPath);
                     strcpy(m_szProcDir, dirName);
                     m_iPid = id;
@@ -49,11 +49,6 @@ bool Process::Attach(const char* name)
     }
     closedir(procDir);
     return false;
-}
-
-bool Process::Attach(const std::string& name)
-{
-    return this->Attach(name.c_str());
 }
 
 /**
@@ -76,11 +71,11 @@ bool Process::ProcessPresent() const
  *
  * @return bool true if the region exists, otherwise false
  */
-bool Process::GetRegion(const char* name, Region& region_out)
+bool Process::GetRegion(const std::string& name, Region& region_out)
 {
     for (Region& r : m_regions) {
         char* fileName = basename(r.pathName);
-        if (strcmp(fileName, name) == 0) {
+        if (name.compare(fileName) == 0) {
             region_out = r;
             return true;
         }
@@ -95,11 +90,11 @@ bool Process::GetRegion(const char* name, Region& region_out)
  *
  * @return bool true if the region exists, otherwise false
  */
-bool Process::HasRegion(const char* name)
+bool Process::HasRegion(const std::string& name)
 {
     for (Region& r : m_regions) {
         char* fileName = basename(r.pathName);
-        if (strcmp(fileName, name) == 0) {
+        if (name.compare(fileName) == 0) {
             return true;
         }
     }
