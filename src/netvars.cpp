@@ -56,12 +56,12 @@ NetVarManager::NetVar_Table NetVarManager::LoadTable(RecvTable& recvTable)
     NetVar_Table table;
 
     table.offset = 0;
-    ReadToBuffer(recvTable.m_pNetTableName, table.name, 64);
+    ReadMemoryToBuffer(recvTable.m_pNetTableName, table.name, 64);
 
     for (int i = 0; i < recvTable.m_nProps; ++i) {
         char propName[64];
         auto prop = ReadMemory<RecvProp>(recvTable.m_pProps + i * sizeof(RecvProp));
-        ReadToBuffer(prop.m_pVarName, propName, 64);
+        ReadMemoryToBuffer(prop.m_pVarName, propName, 64);
         if (!prop.m_pVarName || isdigit(propName[0])) {
             continue;
         }

@@ -57,7 +57,7 @@ class Memory {
             return ReadMemory<T>(addr, sizeof(T), success);
         }
 
-        inline bool ReadToBuffer(uintptr_t addr, void* buffer, size_t len)
+        inline bool ReadMemoryToBuffer(uintptr_t addr, void* buffer, size_t len)
         {
             struct iovec local = {buffer, len};
             struct iovec remote = {reinterpret_cast<void*>(addr), len};
