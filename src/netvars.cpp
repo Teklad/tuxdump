@@ -35,14 +35,14 @@ void NetVarManager::PrintIndent(size_t indents)
 
 NetVarManager::NetVarManager(uintptr_t addr)
 {
-    auto cc = this->Read<ClientClass>(addr);
+    auto cc = ReadMemory<ClientClass>(addr);
     while (true) {
-        auto recvTable = this->Read<RecvTable>(cc.m_pRecvTable);
-        m_data.emplace_back(this->LoadTable(recvTable));
+        auto recvTable = ReadMemory<RecvTable>(cc.m_pRecvTable);
+        m_data.emplace_back(LoadTable(recvTable));
         if (cc.m_pNext == 0) {
             break;
         }
-        cc = this->Read<ClientClass>(cc.m_pNext);
+        cc = ReadMemory<ClientClass>(cc.m_pNext);
     }
 }
 
@@ -56,12 +56,12 @@ NetVarManager::NetVar_Table NetVarManager::LoadTable(RecvTable& recvTable)
     NetVar_Table table;
 
     table.offset = 0;
-    this->ReadToBuffer(recvTable.m_pNetTableName, table.name, 64);
+    ReadToBuffer(recvTable.m_pNetTableName, table.name, 64);
 
     for (int i = 0; i < recvTable.m_nProps; ++i) {
         char propName[64];
-        auto prop = this->Read<RecvProp>(recvTable.m_pProps + i * sizeof(RecvProp));
-        this->ReadToBuffer(prop.m_pVarName, propName, 64);
+        auto prop = ReadMemory<RecvProp>(recvTable.m_pProps + i * sizeof(RecvProp));
+        ReadToBuffer(prop.m_pVarName, propName, 64);
         if (!prop.m_pVarName || isdigit(propName[0])) {
             continue;
         }
@@ -71,7 +71,7 @@ NetVarManager::NetVar_Table NetVarManager::LoadTable(RecvTable& recvTable)
         }
 
         if (prop.m_RecvType == SendPropType::DPT_DataTable && prop.m_pDataTable != 0) {
-            auto childTable = this->Read<RecvTable>(prop.m_pDataTable);
+            auto childTable = ReadMemory<RecvTable>(prop.m_pDataTable);
             table.child_tables.emplace_back(this->LoadTable(childTable));
             table.child_tables.back().offset = prop.m_Offset;
             memcpy(table.child_tables.back().prop.name, propName, 64);

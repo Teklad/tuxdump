@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
                         addr = region.Find(s.pattern.c_str(), s.offset[i]);
                         addr = region.GetCallAddress(addr);
                     } else {
-                        addr = m.Read<uintptr_t>(addr + s.offset[i]);
+                        addr = m.ReadMemory<uintptr_t>(addr + s.offset[i]);
                     }
                 }
                 if (addr == 0) {
@@ -153,7 +153,7 @@ int main(int argc, char *argv[])
                 }
             } else {
                 uintptr_t addr = region.Find(s.pattern.c_str(), s.offset[0]);
-                int offset = m.Read<int>(addr);
+                int offset = m.ReadMemory<int>(addr);
                 if (offset == 0) {
                     PrintOffset(s.module, s.name, 0);
                 } else {

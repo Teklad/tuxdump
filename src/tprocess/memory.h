@@ -39,7 +39,7 @@ class Memory {
          * @return T
          */
         template<typename T>
-        inline T Read(uintptr_t addr, size_t len = sizeof(T), bool* success = nullptr)
+        inline T ReadMemory(uintptr_t addr, size_t len = sizeof(T), bool* success = nullptr)
         {
             T value;
             struct iovec local = {&value, len};
@@ -52,9 +52,9 @@ class Memory {
         }
 
         template<typename T>
-        inline T Read(uintptr_t addr, bool* success)
+        inline T ReadMemory(uintptr_t addr, bool* success)
         {
-            return Read<T>(addr, sizeof(T), success);
+            return ReadMemory<T>(addr, sizeof(T), success);
         }
 
         inline bool ReadToBuffer(uintptr_t addr, void* buffer, size_t len)
@@ -76,7 +76,7 @@ class Memory {
          * @return true on success, otherwise false
          */
         template<typename T>
-        inline bool Write(uintptr_t addr, T value, size_t len = sizeof(T))
+        inline bool WriteMemory(uintptr_t addr, T value, size_t len = sizeof(T))
         {
             struct iovec local = {&value, len};
             struct iovec remote = {reinterpret_cast<void*>(addr), len};
@@ -85,7 +85,7 @@ class Memory {
         }
 
         template<typename T>
-        inline bool Write(uintptr_t addr, T& value, size_t len = sizeof(T))
+        inline bool WriteMemory(uintptr_t addr, T& value, size_t len = sizeof(T))
         {
             struct iovec local = {&value, len};
             struct iovec remote = {reinterpret_cast<void*>(addr), len};
@@ -107,7 +107,7 @@ class Memory {
  * @return std::string containing the string from memory
  */
 template<>
-inline std::string Memory::Read<std::string>(uintptr_t addr, size_t len, bool* success) {
+inline std::string Memory::ReadMemory<std::string>(uintptr_t addr, size_t len, bool* success) {
     std::string result;
     char* buffer = new char[len];
     struct iovec local = {buffer, len};
