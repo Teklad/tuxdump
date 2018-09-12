@@ -1,46 +1,51 @@
-A Linux offset dumper which, given a config file, can use the data signatures to dump offsets from memory in a human readable format for use in cheats.
+# TuxDump
+A Linux offset and CSGO netvar dumper using libconfig.
 
+## Getting Started
+These instructions will give you a working copy of TuxDump to use on your system.
 
-A basic usage example:
-```bash
-sudo tuxdump
-Module                         Name                 Offset              
-engine_client.so               dwClientState        0xdfdce8
-client_panorama_client.so      dwEntityList         0x1ff26e8
-client_panorama_client.so      dwForceAttack        0x2868384
-client_panorama_client.so      dwGlowObject         0x285fa20
-client_panorama_client.so      dwLocalPlayer        0x1fc35d0
-client_panorama_client.so      dwPlayerResource     0x1fd9d30
-```
-
-
-You can also dump netvars to a file with the **--dump-netvars** command line option, with an optional C++ format via **--dump-netvars=cpp** for convenient updated netvars without the need to manually transfer each individual netvar you need over:
-
-
-```bash
-sudo tuxdump --dump-netvars=cpp
-```
-
-
-### Build requirements
+### Prerequisites
+* A working C++ compiler (C++11 or higher)
+* cmake
 * libconfig
+* sudo (execution)
 
+### Building
+First you will need to clone the repository.  This can be done with the following command:
+```
+git clone https://github.com/Teklad/tuxdump.git
+```
 
-### Building the project
-In order to build the project you'll need to use the following commands from the project directory:
-```bash
+You'll then want to cd into the created directory and create your build directory, Once completed cd into the build directory as well.:
+```
+cd tuxdump
 mkdir build && cd build
-cmake ..
+```
+
+From here you'll want to run cmake and build the project:
+```
+cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
 
-### Running the project
-If you run the project without any parameters you'll get the following output which lists the currently available flags:
-```bash
-TuxDump - The Linux offset dumper
-Usage: tuxdump [options]
-    --config=, -c <file>      Alternative configuration file to use
-    --dump-netvars=, -d [style] Dumps netvars to a file.  Available styles: raw, cpp
-    --help, -h                Show this message
+That's it, you're done with the build.
+
+### Usage
+The most basic usage example is this which will dump the offsets defined by signatures in csgo.cfg.  The target process name is also defined in this file.
+```
+sudo ./tuxdump
 ```
 
+
+If you would also like a list of available netvars, this can be done with.
+```
+sudo ./tuxdump -d
+```
+
+For a list of available flags and options, try running tuxdump with the help flag, i.e.:
+```
+sudo ./tuxdump -h
+```
+
+### Licensing
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
