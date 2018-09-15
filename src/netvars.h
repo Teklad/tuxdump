@@ -64,25 +64,33 @@ enum class NetVarOutputStyle {
 class NetVarManager : public TProcess::Memory {
     struct NetVar_Prop {
         std::string name;
+        SendPropType type;
+        int stringSize = 0;
         size_t offset;
     };
     struct NetVar_Table {
         std::string name;
+        std::string typeString;
+        size_t propSize = 0;
         NetVar_Prop prop;
         size_t offset;
+        size_t size;
         std::vector<NetVar_Prop> child_props;
         std::vector<NetVar_Table> child_tables;
     };
     public:
         NetVarManager(uintptr_t addr);
         ~NetVarManager();
-        void Dump(NetVarOutputStyle style = NetVarOutputStyle::Raw);
+        void Dump(NetVarOutputStyle style = NetVarOutputStyle::Raw, bool comments = false);
         void DumpTableCPP(const NetVar_Table& table, size_t indent = 2);
         void DumpTableRaw(const NetVar_Table& table, size_t indent = 1);
     private:
         void PrintIndent(size_t indents = 1);
+        const char* PropToString(const NetVar_Prop& prop);
+        std::string TableToString(const NetVar_Table& table);
         NetVar_Table LoadTable(RecvTable& recvTable);
     private:
         std::vector<NetVar_Table> m_data;
         FILE* m_dumpFile = nullptr;
+        bool m_useComments = false;
 };

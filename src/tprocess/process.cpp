@@ -18,37 +18,33 @@ int Memory::m_iPid = -1;
  *
  * @return true if the process was found, false otherwise
  */
-bool Process::Attach(const std::string& name)
+bool Process::Attach(const char* name)
 {
-    DIR* procDir = opendir("/proc");
-    if (procDir == nullptr) {
-        return false;
-    }
+    m_iPid = -1;
+    DIR* directory = opendir("/proc");
+    if (directory) {
+        struct dirent* entry;
+        while ((entry = readdir(directory)) != nullptr) {
+            int id = strtol(entry->d_name, nullptr, 10);
+            if (id > 0) {
+                char symlinkFile[64];
+                snprintf(symlinkFile, FILENAME_MAX, "/proc/%i/exe", id);
 
-    struct dirent* dirEntry;
-    while ((dirEntry = readdir(procDir)) != nullptr) {
-        int id = strtol(dirEntry->d_name, nullptr, 10);
-        if (id > 0) {
-            char symlinkPath[FILENAME_MAX] = {0};
-            char exePath[FILENAME_MAX] = {0};
-
-            snprintf(symlinkPath, FILENAME_MAX, "/proc/%i/exe", id);
-
-            ssize_t bytesRead = readlink(symlinkPath, exePath, FILENAME_MAX);
-            if (bytesRead > 0) {
-                const char* exeName = basename(exePath);
-                if (strcmp(exeName, name.c_str()) == 0) {
-                    const char* dirName = dirname(symlinkPath);
-                    strcpy(m_szProcDir, dirName);
-                    m_iPid = id;
-                    closedir(procDir);
-                    return true;
+                char executablePath[FILENAME_MAX] = {0};
+                ssize_t bytesRead = readlink(symlinkFile, executablePath, FILENAME_MAX);
+                if (bytesRead > 0) {
+                    const char* executableFile = basename(executablePath);
+                    if (strcmp(executableFile, name) == 0) {
+                        snprintf(m_szProcDir, sizeof(m_szProcDir), "/proc/%i", id);
+                        m_iPid = id;
+                        break;
+                    }
                 }
             }
         }
+        closedir(directory);
     }
-    closedir(procDir);
-    return false;
+    return (m_iPid != -1);
 }
 
 /**
@@ -71,16 +67,15 @@ bool Process::ProcessPresent() const
  *
  * @return bool true if the region exists, otherwise false
  */
-bool Process::GetRegion(const std::string& name, Region& region_out)
+Region& Process::GetRegion(const std::string& name)
 {
     for (Region& r : m_regions) {
         char* fileName = basename(r.pathName);
         if (name.compare(fileName) == 0) {
-            region_out = r;
-            return true;
+            return r;
         }
     }
-    return false;
+    throw std::out_of_range("Process::GetRegion");
 }
 
 /**
@@ -132,23 +127,7 @@ bool Process::ParseMaps()
             free(line);
             return false;
         }
-
-        if (!m_regions.empty() && strcmp(m_regions.back().pathName, pathName) == 0) {
-            if (m_regions.back().start > start) {
-                m_regions.back().start = start;
-            }
-            if (m_regions.back().end < end) {
-                m_regions.back().end = end;
-            }
-        } else {
-            Region region;
-            region.pid = m_iPid;
-            region.start = start;
-            region.end = end;
-            strcpy(region.pathName, pathName);
-            m_regions.push_back(region);
-        }
-
+        m_regions.push_back(Region(m_iPid, pathName, start, end));
     }
     fclose(mapsFile);
     free(line);

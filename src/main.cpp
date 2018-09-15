@@ -1,7 +1,6 @@
 #include "config.h"
 #include "tprocess/process.h"
 #include "tprocess/region.h"
-#include "defines.h"
 #include "netvars.h"
 
 #include <algorithm>
@@ -11,12 +10,14 @@
 #include <unistd.h>
 #include <sys/types.h>
 
+TProcess::Process process;
 struct CommandLineOptions {
     std::string cfgFile = "csgo.cfg";
     std::string outputStyle = "";
+    bool dumpTypeInformation = false;
 };
 
-void PrintHelp()
+static void PrintHelp()
 {
     auto PrintOption = [](const char* option, const char* desc) {
         fprintf(stderr, "    %-25s %-10s\n", option, desc);
@@ -27,23 +28,24 @@ void PrintHelp()
     PrintOption("--config=, -c <file>", "Alternative configuration file to use");
     PrintOption("--dump-netvars=, -d [style]", "Dumps netvars to a file.  Available styles: raw, cpp");
     PrintOption("--help, -h", "Show this message");
-
+    PrintOption("--types, -t", "Dump type information to netvars");
     fprintf(stderr, "\n");
 }
 
-bool ParseArguments(int argc, char** argv, CommandLineOptions& clo)
+static bool ParseArguments(int argc, char** argv, CommandLineOptions& clo)
 {
     const struct option longOptions[] = {
         {"config", optional_argument, 0, 'c'},
         {"dump-netvars", optional_argument, 0, 'd'}, 
         {"help", no_argument, 0, 'h'},
+        {"types", no_argument, 0, 't'},
         {0, 0, 0, 0}
     };
     
     int optionIndex, c;
 
     while (true) {
-        c = getopt_long(argc, argv, "c::d::h", longOptions, &optionIndex);
+        c = getopt_long(argc, argv, "c::d::ht", longOptions, &optionIndex);
         if (c == -1) {
             break;
         }
@@ -63,6 +65,9 @@ bool ParseArguments(int argc, char** argv, CommandLineOptions& clo)
                     clo.outputStyle = "raw";
                 }
                 break;
+            case 't':
+                clo.dumpTypeInformation = true;
+                break;
             default:
                 return false;
         }
@@ -75,20 +80,68 @@ bool ParseArguments(int argc, char** argv, CommandLineOptions& clo)
     return true;
 }
 
-inline void PrintOffset(const std::string& module, const std::string& name, uintptr_t offset, const std::string& comment = "")
+static inline void PrintOffset(const std::string& module,
+        const std::string& name,
+        uintptr_t offset,
+        const std::string& comment = "")
 {
     printf("%-30s %-30s %#-16lx %-20s\n", module.c_str(), name.c_str(), offset, comment.c_str());
 }
 
-uintptr_t GetNVOffset(TProcess::Process& m)
+static void ReadSignature(const SignatureDefinition_t& signature)
 {
-    TProcess::Region region;
-    m.GetRegion("client_panorama_client.so", region);
+    try {
+        TProcess::Region& region = process.GetRegion(signature.module);
+        if (signature.relative) {
+            uintptr_t addr = 0;
+            addr = region.Find(signature.pattern, signature.offset[0]);
+            addr = region.GetCallAddress(addr);
 
-    uintptr_t ccsp = region.Find("48....085b415c415d5dc3....55488d", 26);
-    ccsp = region.GetCallAddress(ccsp);
+            // Read through any extra offsets
+            for (size_t i = 1; i < signature.offset.size(); ++i) {
+                addr = process.ReadMemory<uintptr_t>(addr + signature.offset[i]);
+            }
 
-    return ccsp;
+            if (addr == 0) {
+                PrintOffset(signature.module, signature.name, 0);
+            } else {
+                PrintOffset(signature.module, signature.name, 
+                        addr + signature.extra - region.start,
+                        signature.comment);
+            }
+        } else {
+            uintptr_t addr = region.Find(signature.pattern,
+                    signature.offset[0]);
+            int offset = process.ReadMemory<int>(addr);
+            PrintOffset(signature.module, signature.name, 
+                    offset, signature.comment);
+        }
+    }catch (std::out_of_range& e) {
+        fprintf(stderr, "%s: Can't find '%s'\n", e.what(),
+                signature.module.c_str());
+    }
+}
+
+static void DumpNetvars(std::string& outputStyle, bool comments)
+{
+    constexpr char szClientRegion[] = "client_panorama_client.so";
+    std::transform(outputStyle.begin(), outputStyle.end(), outputStyle.begin(),
+            ::tolower);
+    try {
+        TProcess::Region& region = process.GetRegion(szClientRegion);
+        uintptr_t clientClassHead = region.Find("48....085b415c415d5dc3....55488d", 26);
+        clientClassHead = region.GetCallAddress(clientClassHead);
+        NetVarOutputStyle style = NetVarOutputStyle::Raw;
+        if (outputStyle == "cpp") {
+            style = NetVarOutputStyle::CPlusPlus;
+        }
+
+        NetVarManager nvmgr(clientClassHead);
+        nvmgr.Dump(style, comments);
+    } catch (std::out_of_range& e) {
+        fprintf(stderr, "%s: Can't find '%s'\n", e.what(),
+                szClientRegion);
+    }
 }
 
 int main(int argc, char *argv[])
@@ -123,58 +176,21 @@ int main(int argc, char *argv[])
     printf("==================== Signatures ====================\n");
     printf("%-30s %-30s %-16s %-20s\n", "Module", "Name", "Offset", "Comment");
 
-    TProcess::Process m;
-    TProcess::Region region;
-
-    if (!m.Attach(cfg.GetProcessName())) {
+    if (!process.Attach(cfg.GetProcessName())) {
         fprintf(stderr, "Failed to attach to process '%s', please make sure it is running.\n",
                 cfg.GetProcessName().c_str());
         return 1;
     }
-
-    m.ParseMaps();
+    process.ParseMaps();
 
     for (auto&& s : signatureList) {
-        if (m.GetRegion(s.module, region)) {
-            if (s.relative) {
-                uintptr_t addr = 0;
-                for (size_t i = 0; i < s.offset.size(); ++i) {
-                    if (i == 0) {
-                        addr = region.Find(s.pattern.c_str(), s.offset[i]);
-                        addr = region.GetCallAddress(addr);
-                    } else {
-                        addr = m.ReadMemory<uintptr_t>(addr + s.offset[i]);
-                    }
-                }
-                if (addr == 0) {
-                    PrintOffset(s.module, s.name, 0);
-                } else {
-                    PrintOffset(s.module, s.name, addr + s.extra - region.start, s.comment);
-                }
-            } else {
-                uintptr_t addr = region.Find(s.pattern.c_str(), s.offset[0]);
-                int offset = m.ReadMemory<int>(addr);
-                if (offset == 0) {
-                    PrintOffset(s.module, s.name, 0);
-                } else {
-                    PrintOffset(s.module, s.name, offset, s.comment);
-                }
-            }
-        }
+        ReadSignature(s);
     }
 
     printf("\n");
 
     if (!clo.outputStyle.empty()) {
-        std::transform(clo.outputStyle.begin(), clo.outputStyle.end(), clo.outputStyle.begin(),
-                ::tolower);
-        NetVarOutputStyle style = NetVarOutputStyle::Raw;
-        if (clo.outputStyle == "cpp") {
-            style = NetVarOutputStyle::CPlusPlus;
-        }
-
-        NetVarManager nvmgr(GetNVOffset(m));
-        nvmgr.Dump(style);
+        DumpNetvars(clo.outputStyle, clo.dumpTypeInformation);
     }
     return 0;
 }

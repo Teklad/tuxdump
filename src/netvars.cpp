@@ -1,8 +1,9 @@
 #include "netvars.h"
 
 #include <cctype>
+#include <cstring>
 
-std::string CleanPropString(const std::string original)
+static std::string CleanPropString(const std::string original)
 {
     std::string str = original;
     for (size_t i = 0; i < str.size(); ++i) {
@@ -28,6 +29,89 @@ void NetVarManager::PrintIndent(size_t indents)
     while (indents-- > 0) {
         fprintf(m_dumpFile, "    ");
     }
+}
+
+/**
+ * Use some heuristics to help determine the exact type of a variable 
+ */
+const char* NetVarManager::PropToString(const NetVar_Prop& prop)
+{
+    switch(prop.type) {
+        case SendPropType::DPT_Int:
+            break;
+        case SendPropType::DPT_Float:
+            return "float";
+        case SendPropType::DPT_Vector:
+            return "Vector";
+        case SendPropType::DPT_VectorXY:
+            return "VectoryXY";
+        case SendPropType::DPT_String:
+            return "char";
+        case SendPropType::DPT_Array:
+            return "array";
+        case SendPropType::DPT_Int64:
+            return "int64";
+        case SendPropType::DPT_DataTable:
+            break;
+        default:
+            break;
+    }
+    
+    if (prop.name[0] == 'm' && prop.name[1] == '_' && !isupper(prop.name[2])) {
+        if (prop.name[2] == 'n' && isupper(prop.name[3])) {
+            return "unsigned int";
+        } else if (prop.name[2] == 'i' && isupper(prop.name[3])) {
+            return "int";
+        } else if (prop.name[2] == 'b' && isupper(prop.name[3])) {
+            return "bool";
+        } else if (prop.name.compare(2, 3, "num") == 0 && isupper(prop.name[5])) {
+            return "unsigned int";
+        } else if (prop.name.compare(2, 2, "fl") == 0 && isupper(prop.name[4])) {
+            return "float";
+        } else if (prop.name.compare(2, 2, "ch") == 0 && isupper(prop.name[4])) {
+            return "char";
+        } else if (prop.name.compare(2, 3, "uch") == 0 && isupper(prop.name[5])) {
+            return "unsigned char";
+        } else if (prop.name.compare(2, 2, "uc") == 0 && isupper(prop.name[4])) {
+            return "unsigned char";
+        }
+    }
+    if (prop.type == SendPropType::DPT_DataTable) {
+        return "DataTable";
+    }
+    return "int";
+}
+
+std::string NetVarManager::TableToString(const NetVar_Table& table)
+{
+    char buffer[128];
+    snprintf(buffer, 128, "DataTable[%lu] -> ", table.size);
+    if (table.typeString == "int") {
+        if (table.propSize == 1) {
+            if (table.name.compare(0, 3, "m_b") == 0 && isupper(table.name[3])) {
+                strcat(buffer, "bool");
+            } else {
+                strcat(buffer, "char");
+            }
+        } else if (table.propSize == 2) {
+            strcat(buffer, "short");
+        } else {
+            if (table.name.compare(0, 3, "m_n") == 0 && isupper(table.name[3])) {
+                strcat(buffer, "unsigned int");
+            } else {
+                strcat(buffer, "int");
+            }
+        }
+    } else if (table.typeString == "char") {
+        char suffix[10];
+        snprintf(suffix, 10, "char[%lu]", table.propSize);
+        strcat(buffer, suffix);
+    } else if (table.typeString.empty()) {
+        strcat(buffer, "Table");
+    } else {
+        strcat(buffer, table.typeString.c_str());
+    }
+    return std::string(buffer);
 }
 
 NetVarManager::NetVarManager(uintptr_t addr)
@@ -58,10 +142,20 @@ NetVarManager::NetVar_Table NetVarManager::LoadTable(RecvTable& recvTable)
         NetVar_Prop nvprop;
         nvprop.name = ReadMemory<std::string>(prop.m_pVarName, 64);
         nvprop.offset = prop.m_Offset;
-        if (prop.m_pVarName == 0 || isdigit(nvprop.name[0])) {
+        nvprop.type = prop.m_RecvType;
+        nvprop.stringSize = prop.m_StringBufferSize;
+        if (prop.m_pVarName == 0) {
             continue;
         }
-
+        if (isdigit(nvprop.name[0])) {
+            int pNameInt = strtol(nvprop.name.c_str(), nullptr, 10);
+            if (pNameInt == 1) {
+                table.typeString = PropToString(nvprop);
+                table.propSize = prop.m_Offset;
+            }
+            continue;
+        }
+        
         if (nvprop.name.compare("baseclass") == 0) {
             continue;
         }
@@ -70,6 +164,7 @@ NetVarManager::NetVar_Table NetVarManager::LoadTable(RecvTable& recvTable)
             auto childTable = ReadMemory<RecvTable>(prop.m_pDataTable);
             table.child_tables.emplace_back(LoadTable(childTable));
             table.child_tables.back().offset = prop.m_Offset;
+            table.child_tables.back().size = childTable.m_nProps;
             table.child_tables.back().prop = nvprop;
         } else {
             table.child_props.emplace_back(nvprop);
@@ -79,8 +174,9 @@ NetVarManager::NetVar_Table NetVarManager::LoadTable(RecvTable& recvTable)
     return table;
 }
 
-void NetVarManager::Dump(NetVarOutputStyle style)
+void NetVarManager::Dump(NetVarOutputStyle style, bool comments)
 {
+    m_useComments = comments;
     std::string fileName = "netvar_output";
     switch(style) {
         case NetVarOutputStyle::CPlusPlus:
@@ -150,7 +246,14 @@ void NetVarManager::DumpTableCPP(const NetVar_Table& table, size_t indent)
         if (prop.offset > 0) {
             std::string cleanName = CleanPropString(prop.name);
             PrintIndent(indent);
-            fprintf(m_dumpFile, "constexpr uintptr_t %s = %#lx;\n", cleanName.c_str(), prop.offset);
+            fprintf(m_dumpFile, "constexpr uintptr_t %s = %#lx;", cleanName.c_str(), prop.offset);
+            if (m_useComments) {
+                fprintf(m_dumpFile, " // %s", PropToString(prop));
+            }
+            if (prop.stringSize > 0) {
+                fprintf(m_dumpFile, "[%i]", prop.stringSize);
+            }
+            fprintf(m_dumpFile, "\n");
         }
     }
 
@@ -159,8 +262,11 @@ void NetVarManager::DumpTableCPP(const NetVar_Table& table, size_t indent)
             size_t sep = child.name.find_first_of('_');
             if (sep != std::string::npos) {
                 PrintIndent(indent);
-                fprintf(m_dumpFile, "constexpr uintptr_t m%s = %#lx;\n",
-                        child.name.c_str() + sep, child.offset);
+                fprintf(m_dumpFile, "constexpr uintptr_t m%s = %#lx;", child.name.c_str() + sep, child.offset);
+                if (m_useComments) {
+                    fprintf(m_dumpFile, " // %s", TableToString(child).c_str());
+                }
+                fprintf(m_dumpFile, "\n");
             }
         }
 
@@ -185,7 +291,11 @@ void NetVarManager::DumpTableRaw(const NetVar_Table& table, size_t indent)
     for (const NetVar_Prop& prop : table.child_props) {
         if (prop.offset > 0) {
             PrintIndent(indent);
-            fprintf(m_dumpFile, "%s [%#lx]\n", prop.name.c_str(), prop.offset);
+            fprintf(m_dumpFile, "%s [%#lx]", prop.name.c_str(), prop.offset);
+            if (m_useComments) {
+                fprintf(m_dumpFile, " # %s", PropToString(prop));
+            }
+            fprintf(m_dumpFile, "\n");
         }
     }
 
@@ -194,8 +304,12 @@ void NetVarManager::DumpTableRaw(const NetVar_Table& table, size_t indent)
             size_t sep = child.name.find_first_of('_');
             if (sep != std::string::npos) {
                 PrintIndent(indent);
-                fprintf(m_dumpFile, "m%s [%#lx]\n",
+                fprintf(m_dumpFile, "m%s [%#lx]",
                         child.name.c_str() + sep, child.offset);
+                if (m_useComments) {
+                    fprintf(m_dumpFile, " # %s", TableToString(child).c_str());
+                }
+                fprintf(m_dumpFile, "\n");
             }
         }
 
