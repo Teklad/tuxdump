@@ -27,11 +27,12 @@ bool Process::Attach(const char* name)
         while ((entry = readdir(directory)) != nullptr) {
             int id = strtol(entry->d_name, nullptr, 10);
             if (id > 0) {
-                char symlinkFile[64];
-                snprintf(symlinkFile, FILENAME_MAX, "/proc/%i/exe", id);
+                char symlinkFile[128];
+                snprintf(symlinkFile, sizeof(symlinkFile), "/proc/%i/exe", id);
 
                 char executablePath[FILENAME_MAX] = {0};
-                ssize_t bytesRead = readlink(symlinkFile, executablePath, FILENAME_MAX);
+                ssize_t bytesRead = readlink(symlinkFile, executablePath,
+                        sizeof(executablePath));
                 if (bytesRead > 0) {
                     const char* executableFile = basename(executablePath);
                     if (strcmp(executableFile, name) == 0) {
