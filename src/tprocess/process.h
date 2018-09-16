@@ -22,7 +22,7 @@ class Process : public Memory {
         bool HasRegion(const std::string& name);
         bool ParseMaps();
     private:
-        char m_szProcDir[64];
+        char m_szProcDir[128];
         std::vector<Region> m_regions;
 };
 
