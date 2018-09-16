@@ -71,8 +71,7 @@ bool Process::ProcessPresent() const
 Region& Process::GetRegion(const std::string& name)
 {
     for (Region& r : m_regions) {
-        char* fileName = basename(r.pathName);
-        if (name.compare(fileName) == 0) {
+        if (name.compare(r.pathName) == 0) {
             return r;
         }
     }
@@ -89,8 +88,7 @@ Region& Process::GetRegion(const std::string& name)
 bool Process::HasRegion(const std::string& name)
 {
     for (Region& r : m_regions) {
-        char* fileName = basename(r.pathName);
-        if (name.compare(fileName) == 0) {
+        if (name.compare(r.pathName) == 0) {
             return true;
         }
     }
@@ -117,18 +115,20 @@ bool Process::ParseMaps()
     size_t len = 0;
 
     while (getline(&line, &len, mapsFile) != -1) {
-        char pathName[FILENAME_MAX];
+        char *fileName = strrchr(line, '/');
         uintptr_t start, end;
 
-        int ret = sscanf(line, "%lx-%lx %*4s %*p %*2d:%*2d %*d %[^\t\n]",
-                &start, &end, pathName);
+        int ret = sscanf(line, "%lx-%lx", &start, &end);
 
-        if (ret < 2) {
+        if (ret != 2) {
             fclose(mapsFile);
             free(line);
             return false;
         }
-        m_regions.push_back(Region(m_iPid, pathName, start, end));
+        if (fileName != nullptr) {
+            fileName[strlen(fileName)-1] = 0;
+        }
+        m_regions.push_back(Region(m_iPid, fileName, start, end));
     }
     fclose(mapsFile);
     free(line);

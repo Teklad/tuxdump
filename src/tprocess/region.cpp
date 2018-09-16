@@ -10,7 +10,11 @@ namespace TProcess {
 Region::Region(int iPid, const char* szPathName, uintptr_t nStart, uintptr_t nEnd)
 {
     pid = iPid;
-    strcpy(pathName, szPathName);
+    if (szPathName != nullptr) {
+        strcpy(pathName, szPathName + 1);
+    } else {
+        memset(pathName, 0, sizeof(pathName));
+    }
     start = nStart;
     end = nEnd;
 }
