@@ -117,13 +117,13 @@ bool Process::ParseMaps()
     size_t len = 0;
 
     while (getline(&line, &len, mapsFile) != -1) {
-        char pathName[FILENAME_MAX] = {0};
+        char pathName[FILENAME_MAX];
         uintptr_t start, end;
 
-        bool ret = sscanf(line, "%lx-%lx %*4s %*p %*2d:%*2d %*d %[^\t\n]",
+        int ret = sscanf(line, "%lx-%lx %*4s %*p %*2d:%*2d %*d %[^\t\n]",
                 &start, &end, pathName);
 
-        if (ret != 1) {
+        if (ret < 2) {
             fclose(mapsFile);
             free(line);
             return false;
