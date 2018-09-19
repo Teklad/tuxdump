@@ -25,7 +25,7 @@ static void PrintHelp()
     fprintf(stderr, "Usage: tuxdump [options]\n");
 
     PrintOption("--config=, -c <file>", "Alternative configuration file to use");
-    PrintOption("--dump-netvars=, -d [style]", "Dumps netvars to a file.  Available styles: raw, cpp");
+    PrintOption("--dump-netvars=, -d [style]", "Dumps netvars to a file.  Available styles: raw, cpp, java");
     PrintOption("--help, -h", "Show this message");
     PrintOption("--types, -t", "Dump type information to netvars");
     fprintf(stderr, "\n");
@@ -170,6 +170,7 @@ int main(int argc, char *argv[])
         NetvarDumper dumper(process);
         dumper.SetShowComments(clo.dumpTypeInformation);
         constexpr char dumpFileCPP[] = "netvar_output.h";
+        constexpr char dumpFileJava[] = "netvar_output.java";
         constexpr char dumpFileRaw[] = "netvar_output.txt";
         const char* dumpFile;
         if (clo.outputStyle == "cpp") {
@@ -184,7 +185,17 @@ int main(int argc, char *argv[])
             dumper.AddSubstitution('.', '_');
             dumper.AddSubstitution('[', '_');
             dumper.AddSubstitution(']', 0);
-            dumper.DumpTables(dumpFile);
+        } else if (clo.outputStyle == "java") {
+            dumpFile = dumpFileJava;
+            dumper.SetHeader("public class Netvars {\n");
+            dumper.SetFooter("}");
+            dumper.SetTableFormat("public static class {{NAME}} { {{COMMENT}}\n{{DATA}}}\n");
+            dumper.SetPropertyFormat("public static final long {{NAME}} = {{VALUE}}; {{COMMENT}}\n");
+            dumper.SetCommentFormat("// {{COMMENT}}");
+            dumper.SetDefaultDepth(1);
+            dumper.AddSubstitution('.', '_');
+            dumper.AddSubstitution('[', '_');
+            dumper.AddSubstitution(']', 0);
         } else {
             dumpFile = dumpFileRaw;
             dumper.SetShowTablePrefix(true);
@@ -192,8 +203,8 @@ int main(int argc, char *argv[])
             dumper.SetPropertyFormat("{{NAME}} [{{VALUE}}] {{COMMENT}}\n");
             dumper.SetCommentFormat("# {{COMMENT}}");
             dumper.SetDefaultDepth(0);
-            dumper.DumpTables("netvar_output.txt");
         }
+        dumper.DumpTables(dumpFile);
         printf("Dumped netvars to \"%s\"\n", dumpFile);
     }
     return 0;
