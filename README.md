@@ -37,10 +37,11 @@ sudo ./tuxdump
 ```
 
 
-If you would also like a list of available netvars, this can be done with.
+If you would also like a list of available netvars, this can be done with.  There is also an optional -t flag for dumping type information.
 ```
-sudo ./tuxdump -d
+sudo ./tuxdump -d[format]
 ```
+**Available Formats:** cpp, java, raw
 
 For a list of available flags and options, try running tuxdump with the help flag, i.e.:
 ```
