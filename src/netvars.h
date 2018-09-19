@@ -1,8 +1,10 @@
-#pragma once
-#include "tprocess/memory.h"
-#include "tprocess/region.h"
+#ifndef __TUXDUMP_NETVAR_H__
+#define __TUXDUMP_NETVAR_H__
+#include "tprocess/process.h"
+
 #include <cstdint>
 #include <cstdio>
+#include <fstream>
 #include <vector>
 
 struct ClientClass {
@@ -23,7 +25,9 @@ enum class SendPropType : int {
     DPT_Array,
     DPT_DataTable,
     DPT_Int64,
-    DPT_NUMSendPropTypes
+    DPT_NUMSendPropTypes,
+    DPT_EmptyDataTable,
+    DPT_UnknownDataTable
 };
 
 struct RecvProp {
@@ -39,16 +43,16 @@ struct RecvProp {
     uintptr_t m_ProxyFn;
     uintptr_t m_DataTableProxyFn;
     uintptr_t m_pDataTable;
-    int m_Offset;
+    unsigned int m_Offset;
     int m_ElementStride;
-    int m_nElements;
+    unsigned int m_nElements;
     uint8_t pad1[4];
     uintptr_t m_pParentArrayPropName;
 };
 
 struct RecvTable {
     uintptr_t m_pProps;
-    int m_nProps;
+    unsigned int m_nProps;
     uint8_t pad0[4];
     uintptr_t m_pDecoder;
     uintptr_t m_pNetTableName;
@@ -56,41 +60,40 @@ struct RecvTable {
     bool m_bInMainList;
 };
 
-enum class NetVarOutputStyle {
-    CPlusPlus,
-    Raw
+class NetvarDumper : public TProcess::Memory {
+    public:
+        NetvarDumper(TProcess::Process& process);
+        ~NetvarDumper() = default;
+        void DumpTables(const char* fileName = nullptr);
+        void DumpClassIDs(const char* fileName = nullptr);
+        void SetHeader(const char* header);
+        void SetFooter(const char* footer);
+        void SetTableFormat(const char* format);
+        void SetPropertyFormat(const char* format);
+        void SetCommentFormat(const char* format);
+        void SetDefaultDepth(size_t depth);
+        void SetShowTablePrefix(bool enabled);
+        void SetShowComments(bool enabled);
+        void AddSubstitution(char before, char after);
+        std::string& SubstituteChars(std::string& str);
+    private:
+        void DumpTable(std::ostream& dumpFile, RecvTable& recvTable, std::string& tableName, size_t depth = 0);
+        void WriteIndent(std::ostream& dumpFile, size_t depth);
+        void WriteProperty(std::ostream& dumpFile, std::string& propName, size_t offset, std::string& comment);
+        void PrintBufferSize(std::ostream& dumpFile, unsigned int size);
+        std::string PropToString(RecvProp& prop, const std::string& propName, size_t offset = 0);
+    private:
+        std::vector<std::pair<char, char>> m_fmtSubstitutions;
+        uintptr_t m_classHead;
+        size_t m_defaultDepth;
+        bool m_fmtShowComments = false;
+        bool m_fmtShowTablePrefix = false;
+        const char* m_fmtTable;
+        const char* m_fmtProperty;
+        const char* m_fmtComment;
+        const char* m_fmtHeader = nullptr;
+        const char* m_fmtFooter = nullptr;
+        const char* m_fmtIndent = "    ";
 };
 
-class NetVarManager : public TProcess::Memory {
-    struct NetVar_Prop {
-        std::string name;
-        SendPropType type;
-        int stringSize = 0;
-        size_t offset;
-    };
-    struct NetVar_Table {
-        std::string name;
-        std::string typeString;
-        size_t propSize = 0;
-        NetVar_Prop prop;
-        size_t offset;
-        size_t size;
-        std::vector<NetVar_Prop> child_props;
-        std::vector<NetVar_Table> child_tables;
-    };
-    public:
-        NetVarManager(uintptr_t addr);
-        ~NetVarManager();
-        void Dump(NetVarOutputStyle style = NetVarOutputStyle::Raw, bool comments = false);
-        void DumpTableCPP(const NetVar_Table& table, size_t indent = 2);
-        void DumpTableRaw(const NetVar_Table& table, size_t indent = 1);
-    private:
-        void PrintIndent(size_t indents = 1);
-        const char* PropToString(const NetVar_Prop& prop);
-        std::string TableToString(const NetVar_Table& table);
-        NetVar_Table LoadTable(RecvTable& recvTable);
-    private:
-        std::vector<NetVar_Table> m_data;
-        FILE* m_dumpFile = nullptr;
-        bool m_useComments = false;
-};
+#endif

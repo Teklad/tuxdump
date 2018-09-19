@@ -1,6 +1,5 @@
 #include "config.h"
 #include "tprocess/process.h"
-#include "tprocess/region.h"
 #include "netvars.h"
 
 #include <algorithm>
@@ -122,28 +121,6 @@ static void ReadSignature(const SignatureDefinition_t& signature)
     }
 }
 
-static void DumpNetvars(std::string& outputStyle, bool comments)
-{
-    constexpr char szClientRegion[] = "client_panorama_client.so";
-    std::transform(outputStyle.begin(), outputStyle.end(), outputStyle.begin(),
-            ::tolower);
-    try {
-        TProcess::Region& region = process.GetRegion(szClientRegion);
-        uintptr_t clientClassHead = region.Find("48....085b415c415d5dc3....55488d", 26);
-        clientClassHead = region.GetCallAddress(clientClassHead);
-        NetVarOutputStyle style = NetVarOutputStyle::Raw;
-        if (outputStyle == "cpp") {
-            style = NetVarOutputStyle::CPlusPlus;
-        }
-
-        NetVarManager nvmgr(clientClassHead);
-        nvmgr.Dump(style, comments);
-    } catch (std::out_of_range& e) {
-        fprintf(stderr, "%s: Can't find '%s'\n", e.what(),
-                szClientRegion);
-    }
-}
-
 int main(int argc, char *argv[])
 {
 
@@ -190,7 +167,34 @@ int main(int argc, char *argv[])
     printf("\n");
 
     if (!clo.outputStyle.empty()) {
-        DumpNetvars(clo.outputStyle, clo.dumpTypeInformation);
+        NetvarDumper dumper(process);
+        dumper.SetShowComments(clo.dumpTypeInformation);
+        constexpr char dumpFileCPP[] = "netvar_output.h";
+        constexpr char dumpFileRaw[] = "netvar_output.txt";
+        const char* dumpFile;
+        if (clo.outputStyle == "cpp") {
+            dumpFile = dumpFileCPP;
+            dumper.SetHeader("#ifndef __NETVAROUTPUT_H__\n#define __NETVAROUTPUT_H__\n"
+                    "#include <cstdint>\n\nnamespace Netvars {\n");
+            dumper.SetFooter("}\n#endif");
+            dumper.SetTableFormat("namespace {{NAME}} { {{COMMENT}}\n{{DATA}}}\n");
+            dumper.SetPropertyFormat("constexpr uintptr_t {{NAME}} = {{VALUE}}; {{COMMENT}}\n");
+            dumper.SetCommentFormat("// {{COMMENT}}");
+            dumper.SetDefaultDepth(1);
+            dumper.AddSubstitution('.', '_');
+            dumper.AddSubstitution('[', '_');
+            dumper.AddSubstitution(']', 0);
+            dumper.DumpTables(dumpFile);
+        } else {
+            dumpFile = dumpFileRaw;
+            dumper.SetShowTablePrefix(true);
+            dumper.SetTableFormat("{{NAME}} {{COMMENT}}\n{{DATA}}");
+            dumper.SetPropertyFormat("{{NAME}} [{{VALUE}}] {{COMMENT}}\n");
+            dumper.SetCommentFormat("# {{COMMENT}}");
+            dumper.SetDefaultDepth(0);
+            dumper.DumpTables("netvar_output.txt");
+        }
+        printf("Dumped netvars to \"%s\"\n", dumpFile);
     }
     return 0;
 }
