@@ -1,3 +1,6 @@
 [submodule "libs/fmt"]
 	path = libs/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "libs/tuxproc"]
+	path = libs/tuxproc
+	url = https://github.com/Teklad/tuxproc.git
