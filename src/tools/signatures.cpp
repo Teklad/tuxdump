@@ -1,14 +1,15 @@
 #include "tools.h"
 #include "../globals.h"
-#include "../printer.h"
 
-#include <rapidjson/rapidjson.h>
 #include <rapidjson/document.h>
+#include <rapidjson/prettywriter.h>
+#include <rapidjson/stringbuffer.h>
 
-static void ReadSignatures()
+void Tools::DumpSignatures(Formatter& fmt)
 {
-    rapidjson::Document data;
-    data.SetObject();
+    rapidjson::StringBuffer data;
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(data);
+    writer.StartObject();
 
     libconfig::Setting& signatures = g_cfg.lookup("signatures");
     for (const libconfig::Setting& entry : signatures) {
@@ -31,18 +32,11 @@ static void ReadSignatures()
             } else {
                 addr = g_process.Read<int>(addr);
             }
-            Printer::PrintOffset(entry.getName(), addr ? addr + extra - startAddr : 0);
+            writer.Key(entry.getName());
+            writer.Uint(addr ? addr + extra - startAddr : 0);
         }
     }
-}
-
-void Tools::DumpSignatures()
-{
-    Printer::PrintFileHeader("signatures");
-    Printer::PrintTimestamp();
-    Printer::PrintSignaturesStart();
-    ReadSignatures();
-    Printer::PrintSignaturesEnd();
-    Printer::PrintFileFooter("signatures");
+    writer.EndObject();
+    fmt.Print(data.GetString(), "signatures");
 }
 

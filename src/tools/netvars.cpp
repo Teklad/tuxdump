@@ -1,8 +1,8 @@
 #include "tools.h"
 #include "../globals.h"
-#include "../printer.h"
 
-#include <cstring>
+#include <rapidjson/prettywriter.h>
+#include <rapidjson/stringbuffer.h>
 
 class ClientClass {
     public:
@@ -77,7 +77,8 @@ static uintptr_t GetClassHead()
     return addr;
 }
 
-static void DumpNetvarTable(RecvTable table, const char* tableName, int depth)
+static void DumpNetvarTable(RecvTable table, const char* tableName, int depth,
+        rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer)
 {
     RecvProp props[1024];
     char propName[64];
@@ -97,7 +98,8 @@ static void DumpNetvarTable(RecvTable table, const char* tableName, int depth)
         return;
     }
 
-    Printer::PrintNetvarTableStart(tableName, depth);
+    writer.Key(tableName);
+    writer.StartObject();
     for (size_t i = 0; i < table.m_nProps; ++i) {
         RecvProp& prop = props[i];
         if (g_process.ReadMemory(prop.m_pVarName, propName, sizeof(propName)) < 1) {
@@ -114,25 +116,29 @@ static void DumpNetvarTable(RecvTable table, const char* tableName, int depth)
 
         if (prop.m_RecvType == SendPropType::DPT_DataTable && prop.m_pDataTable) {
             if (prop.m_Offset > 0) {
-                Printer::PrintOffset(propName, prop.m_Offset, depth + 1);
+                writer.Key(propName);
+                writer.Uint(prop.m_Offset);
             }
             auto nextTable = g_process.Read<RecvTable>(prop.m_pDataTable);
             char nextTableName[64];
             if (g_process.ReadMemory(nextTable.m_pNetTableName, nextTableName, sizeof(nextTableName)) < 1) {
                 continue;
             }
-            DumpNetvarTable(nextTable, nextTableName, depth + 1);
+            DumpNetvarTable(nextTable, nextTableName, depth + 1, writer);
         } else {
-            Printer::PrintOffset(propName, prop.m_Offset, depth + 1);
+            writer.Key(propName);
+            writer.Uint(prop.m_Offset);
         }
     }
-    Printer::PrintNetvarTableEnd(tableName, depth);
+    writer.EndObject();
 }
 
-void Tools::DumpNetvars()
+void Tools::DumpNetvars(Formatter& fmt)
 {
-    Printer::PrintFileHeader("netvars");
-    Printer::PrintNetvarsStart();
+    rapidjson::StringBuffer data;
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(data);
+    writer.StartObject();
+
     char tableName[64];
     ClientClass cc;
     cc.m_pNext = GetClassHead();
@@ -141,10 +147,11 @@ void Tools::DumpNetvars()
         if (cc.m_pRecvTable) {
             auto table = g_process.Read<RecvTable>(cc.m_pRecvTable);
             g_process.ReadMemory(cc.m_pNetworkName, tableName, sizeof(tableName));
-            DumpNetvarTable(table, tableName, 1);
+            DumpNetvarTable(table, tableName, 1, writer);
         }
     } while (cc.m_pNext);
-    Printer::PrintNetvarsEnd();
-    Printer::PrintFileFooter("netvars");
+    writer.EndObject();
+
+    fmt.Print(data.GetString(), "netvars");
 }
 

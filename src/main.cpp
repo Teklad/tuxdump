@@ -1,4 +1,5 @@
 #include "tools/tools.h"
+#include "formatter.h"
 #include "globals.h"
 #include "logger.h"
 
@@ -10,8 +11,6 @@
 
 TuxProc::Process g_process;
 libconfig::Config g_cfg;
-libconfig::Config g_cfgFormat;
-const char* g_fmtOutput;
 
 constexpr const char validTools[][20] = {
     "classids",
@@ -50,40 +49,14 @@ static bool ReadSignatureConfig(const char* configFile)
     return true;
 }
 
-static bool ReadFormatConfig(const char* configFile)
-{
-    try {
-        g_cfgFormat.readFile(configFile);
-    } catch (const libconfig::FileIOException& fioex) {
-        return false;
-    } catch (const libconfig::ParseException& pex) {
-        Logger::Error("Parse exception: {}\nFile: {}:{}\n", 
-                pex.getError(), configFile, pex.getLine());
-        return false;
-    }
-
-    try {
-        libconfig::Setting& formats = g_cfgFormat.lookup("formats");
-        for (libconfig::Setting& entry : formats) {
-            entry.lookup("variable_offset");
-            entry.lookup("netvars.table_start");
-            entry.lookup("netvars.table_end");
-        }
-    } catch (const libconfig::SettingNotFoundException& snfex) {
-        Logger::Error("{}: {}", snfex.what(), snfex.getPath());
-        return false;
-    }
-    return true;
-}
-
-static void RunTool(const char* cmdTool)
+static void RunTool(const char* cmdTool, Formatter& fmt)
 {
     if (!strcasecmp(cmdTool, "classids")) {
         //run tool classids
     } else if (!strcasecmp(cmdTool, "netvars")) {
-        Tools::DumpNetvars();
+        Tools::DumpNetvars(fmt);
     } else if (!strcasecmp(cmdTool, "signatures")) {
-        Tools::DumpSignatures();
+        Tools::DumpSignatures(fmt);
     }
 }
 
@@ -91,17 +64,6 @@ static bool CheckTool(const char* cmdTool)
 {
     for (size_t i = 0; i < sizeof(validTools)/sizeof(validTools[0]); ++i) {
         if (!strcasecmp(validTools[i], cmdTool)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static bool CheckFormat(const char* cmdFormat)
-{
-    libconfig::Setting& formats = g_cfgFormat.getRoot().lookup("formats");
-    for (libconfig::Setting& entry : formats) {
-        if (!strcasecmp(entry.getName(), cmdFormat)) {
             return true;
         }
     }
@@ -120,9 +82,27 @@ static void PrintOption(const char* name, const char* desc = nullptr)
 static void PrintHelpFormats()
 {
     Logger::Log("Available Formats:");
-    libconfig::Setting& formats = g_cfgFormat.lookup("formats");
-    for (libconfig::Setting& entry : formats) {
-        PrintOption(entry.getName());
+    libconfig::Config cfg;
+    PrintOption("json");
+
+    try {
+        cfg.readFile("formats.cfg");
+    } catch (const libconfig::FileIOException& fioex) {
+        Logger::Error("Failed to open file \"formats.cfg\"");
+        return;
+    } catch (const libconfig::ParseException& pex) {
+        Logger::Error("Parse exception: {}\nFile: {}:{}\n", 
+                pex.getError(), "formats.cfg", pex.getLine());
+        return;
+    }
+
+    try {
+        libconfig::Setting& formats = cfg.lookup("formats");
+        for (const libconfig::Setting& entry : formats) {
+            PrintOption(entry.getName());
+        }
+    } catch (const libconfig::SettingNotFoundException& snfex) {
+        Logger::Error("formats.cfg missing formats group");
     }
     Logger::EOL();
 }
@@ -163,14 +143,9 @@ static void PrintHelpAll()
 int main(int argc, char* argv[])
 {
     const char* cmdConfig = "csgo.cfg";
-    const char* cmdFormat = "raw";
+    const char* cmdFormat = "json";
     const char* cmdProcess = "csgo_linux64";
     const char* cmdTool = "signatures";
-
-    if (!ReadFormatConfig("formats.cfg")) {
-        Logger::Error("Failed to read format config file \"{}\"", "formats.cfg");
-        return 1;
-    }
 
     int c;
     opterr = 0;
@@ -207,18 +182,9 @@ int main(int argc, char* argv[])
         return 2;
     }
 
-    g_fmtOutput = cmdFormat;
-
     if (!ReadSignatureConfig(cmdConfig)) {
         Logger::Error("Failed to read signatures config file \"{}\"", cmdConfig);
         return 3;
-    }
-
-
-    if (!CheckFormat(cmdFormat)) {
-        Logger::Error("Unknown format \"{}\"", cmdFormat);
-        PrintHelpFormats();
-        return 4;
     }
 
     if (!CheckTool(cmdTool)) {
@@ -238,13 +204,20 @@ int main(int argc, char* argv[])
         return 7;
     }
 
+    Formatter fmt;
+
+    if (!fmt.LoadFormat(cmdFormat)) {
+        Logger::Error("Failed to load format \"{}\"", cmdFormat);
+        return 8;
+    }
+
     Logger::Log("Options:");
     PrintOption("Config:", cmdConfig);
     PrintOption("Format:", cmdFormat);
     PrintOption("Process:", cmdProcess);
     PrintOption("Tool:", cmdTool);
 
-    RunTool(cmdTool);
+    RunTool(cmdTool, fmt);
 
     return 0;
 }

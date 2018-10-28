@@ -2,29 +2,19 @@ cmake_minimum_required(VERSION 3.6)
 
 project(tuxdump VERSION 1.0.0 LANGUAGES CXX)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+include(BuildType)
+
 find_package(TuxProc CONFIG REQUIRED)
 find_package(libconfig++ CONFIG QUIET)
-find_package(RapidJSON CONFIG QUIET)
 find_package(PkgConfig QUIET)
 
 # Disable some unused things in the subprojects
-set(RAPIDJSON_BUILD_TESTS OFF CACHE BOOL "Build rapidjson tests")
-set(RAPIDJSON_BUILD_EXAMPLES OFF CACHE BOOL "Build rapidjson examples")
-set(RAPIDJSON_BUILD_THIRDPARTY_GTEST OFF CACHE BOOL "Build rapidjson gtest")
-set(RAPIDJSON_BUILD_DOC OFF CACHE BOOL "Build rapidjson docs")
 set(BUILD_TESTS OFF CACHE BOOL "Build libconfig tests")
 set(BUILD_EXAMPLES OFF CACHE BOOL "Build libconfig examples")
 set(FMT_TEST OFF CACHE BOOL "Disable fmt tests")
 
-if (NOT RapidJSON_FOUND)
-    if (PkgConfig_FOUND)
-        pkg_check_modules(RapidJSON RapidJSON QUIET)
-    endif()
-    if (NOT RapidJSON_FOUND)
-        set (USE_INTERNAL_RAPIDJSON ON CACHE BOOL "Use internal rapidjson" FORCE)
-        add_subdirectory(libs/rapidjson)
-    endif()
-endif()
 if (NOT LIBCONFIG++_FOUND)
     if (PkgConfig_FOUND)
         pkg_check_modules(LIBCONFIG++ libconfig++ QUIET)
@@ -36,27 +26,22 @@ if (NOT LIBCONFIG++_FOUND)
 endif()
 
 if (USE_INTERNAL_LIBCONFIG)
-    message("Using internal libconfig")
+    message(STATUS "Using internal libconfig")
     set(LIBCONFIG++_LIBRARIES "config++")
 else()
-    message("Using system libconfig")
-endif()
-
-if (USE_INTERNAL_RAPIDJSON)
-    message("Using internal rapidjson")
-else()
-    message("Using system rapidjson")
+    message(STATUS "Using system libconfig")
 endif()
 
 add_executable(${PROJECT_NAME}
+    src/formatter.cpp
     src/main.cpp
-    src/printer.cpp
     src/tools/signatures.cpp
     src/tools/netvars.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${LIBCONFIG++_INCLUDE_DIRS}
+    libs/rapidjson/include
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
