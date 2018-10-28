@@ -15,14 +15,15 @@ First you will need to clone the repository.  This can be done with the followin
 git clone https://github.com/Teklad/tuxdump.git
 ```
 
-You will need to cd into the created directory and create the build directory:
+You will need to cd into the created directory and update the submodules:
 ```
 cd tuxdump
-mkdir build && cd build
+git submodule update --init --recursive
 ```
 
 All that is left now is to compile:
 ```
+mkdir build && cd build
 cmake ..
 make
 ```
@@ -54,6 +55,9 @@ For an always up to date list of formats and tools, simply run:
 ```
 sudo ./tuxdump -h
 ```
+
+### Custom formatting
+If you're needing some kind of formatted output that isn't already provided, there is preliminary support for this in the form of formats.cfg.  If you add a new format, please feel free to create a pull request so I can get it included into the master branch.
 
 ### Licensing
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE) file for details.
