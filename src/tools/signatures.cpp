@@ -1,8 +1,15 @@
 #include "tools.h"
 #include "../globals.h"
 #include "../printer.h"
+
+#include <rapidjson/rapidjson.h>
+#include <rapidjson/document.h>
+
 static void ReadSignatures()
 {
+    rapidjson::Document data;
+    data.SetObject();
+
     libconfig::Setting& signatures = g_cfg.lookup("signatures");
     for (const libconfig::Setting& entry : signatures) {
         const char *region = entry.lookup("region");

@@ -4,13 +4,31 @@ project(tuxdump VERSION 1.0.0 LANGUAGES CXX)
 
 find_package(TuxProc CONFIG REQUIRED)
 find_package(libconfig++ CONFIG QUIET)
-find_package(RapidJSON CONFIG
+find_package(RapidJSON CONFIG QUIET)
+find_package(PkgConfig QUIET)
 
-# Use pkg-config for libconfig++ if find_package fails
+# Disable some unused things in the subprojects
+set(RAPIDJSON_BUILD_TESTS OFF CACHE BOOL "Build rapidjson tests")
+set(RAPIDJSON_BUILD_EXAMPLES OFF CACHE BOOL "Build rapidjson examples")
+set(RAPIDJSON_BUILD_THIRDPARTY_GTEST OFF CACHE BOOL "Build rapidjson gtest")
+set(RAPIDJSON_BUILD_DOC OFF CACHE BOOL "Build rapidjson docs")
+set(BUILD_TESTS OFF CACHE BOOL "Build libconfig tests")
+set(BUILD_EXAMPLES OFF CACHE BOOL "Build libconfig examples")
+set(FMT_TEST OFF CACHE BOOL "Disable fmt tests")
+
+if (NOT RapidJSON_FOUND)
+    if (PkgConfig_FOUND)
+        pkg_check_modules(RapidJSON RapidJSON QUIET)
+    endif()
+    if (NOT RapidJSON_FOUND)
+        set (USE_INTERNAL_RAPIDJSON ON CACHE BOOL "Use internal rapidjson" FORCE)
+        add_subdirectory(libs/rapidjson)
+    endif()
+endif()
 if (NOT LIBCONFIG++_FOUND)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(LIBCONFIG++ libconfig++ QUIET)
-    # Build internal version if that fails as well
+    if (PkgConfig_FOUND)
+        pkg_check_modules(LIBCONFIG++ libconfig++ QUIET)
+    endif()
     if (NOT LIBCONFIG++_FOUND)
         set(USE_INTERNAL_LIBCONFIG ON CACHE BOOL "Use internal libconfig" FORCE)
         add_subdirectory(libs/libconfig)
@@ -21,7 +39,13 @@ if (USE_INTERNAL_LIBCONFIG)
     message("Using internal libconfig")
     set(LIBCONFIG++_LIBRARIES "config++")
 else()
-    message("Using system libconfig: ${LIBCONFIG++_LIBRARIES} ${LIBCONFIG++_VERSION}")
+    message("Using system libconfig")
+endif()
+
+if (USE_INTERNAL_RAPIDJSON)
+    message("Using internal rapidjson")
+else()
+    message("Using system rapidjson")
 endif()
 
 add_executable(${PROJECT_NAME}
@@ -51,9 +75,6 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
 )
 
-set(BUILD_TESTS OFF CACHE BOOL "Build libconfig tests" FORCE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "Build libconfig examples" FORCE)
-set(FMT_TEST OFF CACHE BOOL "Disable fmt tests" FORCE)
 
 add_subdirectory(libs/fmt)
 add_subdirectory(libs/tuxproc)
