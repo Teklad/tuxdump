@@ -66,8 +66,8 @@ static bool ReadFormatConfig(const char* configFile)
         libconfig::Setting& formats = g_cfgFormat.lookup("formats");
         for (libconfig::Setting& entry : formats) {
             entry.lookup("variable_offset");
-            entry.lookup("netvar_table_start");
-            entry.lookup("netvar_table_end");
+            entry.lookup("netvars.table_start");
+            entry.lookup("netvars.table_end");
         }
     } catch (const libconfig::SettingNotFoundException& snfex) {
         Logger::Error("{}: {}", snfex.what(), snfex.getPath());
@@ -76,7 +76,7 @@ static bool ReadFormatConfig(const char* configFile)
     return true;
 }
 
-static void RunTool(const char* cmdTool, const char* cmdFormat)
+static void RunTool(const char* cmdTool)
 {
     if (!strcasecmp(cmdTool, "classids")) {
         //run tool classids
@@ -244,7 +244,7 @@ int main(int argc, char* argv[])
     PrintOption("Process:", cmdProcess);
     PrintOption("Tool:", cmdTool);
 
-    RunTool(cmdTool, cmdFormat);
+    RunTool(cmdTool);
 
     return 0;
 }

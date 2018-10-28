@@ -4,3 +4,9 @@
 [submodule "libs/tuxproc"]
 	path = libs/tuxproc
 	url = https://github.com/Teklad/tuxproc.git
+[submodule "libs/libconfig"]
+	path = libs/libconfig
+	url = https://github.com/hyperrealm/libconfig.git
+[submodule "libs/rapidjson"]
+	path = libs/rapidjson
+	url = https://github.com/Tencent/rapidjson.git

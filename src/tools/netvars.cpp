@@ -93,8 +93,39 @@ static void DumpNetvarTable(RecvTable table, const char* tableName, int depth)
         }
     }
 
+    if (isdigit(propName[0])) {
+        return;
+    }
+
     Printer::PrintNetvarTableStart(tableName, depth);
-    
+    for (size_t i = 0; i < table.m_nProps; ++i) {
+        RecvProp& prop = props[i];
+        if (g_process.ReadMemory(prop.m_pVarName, propName, sizeof(propName)) < 1) {
+            continue;
+        }
+
+        if (!strcmp(propName, "baseclass")) {
+            continue;
+        }
+
+        if (isdigit(propName[0]) || prop.m_RecvType == SendPropType::DPT_Array) {
+            continue;
+        }
+
+        if (prop.m_RecvType == SendPropType::DPT_DataTable && prop.m_pDataTable) {
+            if (prop.m_Offset > 0) {
+                Printer::PrintOffset(propName, prop.m_Offset, depth + 1);
+            }
+            auto nextTable = g_process.Read<RecvTable>(prop.m_pDataTable);
+            char nextTableName[64];
+            if (g_process.ReadMemory(nextTable.m_pNetTableName, nextTableName, sizeof(nextTableName)) < 1) {
+                continue;
+            }
+            DumpNetvarTable(nextTable, nextTableName, depth + 1);
+        } else {
+            Printer::PrintOffset(propName, prop.m_Offset, depth + 1);
+        }
+    }
     Printer::PrintNetvarTableEnd(tableName, depth);
 }
 
@@ -110,7 +141,7 @@ void Tools::DumpNetvars()
         if (cc.m_pRecvTable) {
             auto table = g_process.Read<RecvTable>(cc.m_pRecvTable);
             g_process.ReadMemory(cc.m_pNetworkName, tableName, sizeof(tableName));
-            DumpNetvarTable(table, tableName, 0);
+            DumpNetvarTable(table, tableName, 1);
         }
     } while (cc.m_pNext);
     Printer::PrintNetvarsEnd();
