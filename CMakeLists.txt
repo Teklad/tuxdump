@@ -6,7 +6,6 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 include(BuildType)
 
-add_subdirectory(libs/tuxproc)
 
 find_package(libconfig++ CONFIG QUIET)
 find_package(PkgConfig QUIET)
@@ -62,4 +61,5 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 )
 
 
+add_subdirectory(libs/tuxproc)
 add_subdirectory(libs/fmt)
