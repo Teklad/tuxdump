@@ -6,7 +6,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 include(BuildType)
 
-find_package(TuxProc CONFIG REQUIRED)
+add_subdirectory(libs/tuxproc)
+
 find_package(libconfig++ CONFIG QUIET)
 find_package(PkgConfig QUIET)
 
@@ -45,9 +46,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    TuxProc::tuxproc
     ${LIBCONFIG++_LIBRARIES}
     fmt
+    tuxproc
 )
 
 configure_file("config/csgo.cfg" "${CMAKE_BINARY_DIR}/csgo.cfg" COPYONLY)
@@ -62,4 +63,3 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 
 
 add_subdirectory(libs/fmt)
-add_subdirectory(libs/tuxproc)
