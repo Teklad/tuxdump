@@ -142,6 +142,10 @@ static void PrintHelpAll()
 
 int main(int argc, char* argv[])
 {
+    if (getuid() != 0) {
+        Logger::Error("This software requires root privileges to run.");
+        return 1;
+    }
     const char* cmdConfig = "csgo.cfg";
     const char* cmdFormat = "json";
     const char* cmdProcess = "csgo_linux64";
