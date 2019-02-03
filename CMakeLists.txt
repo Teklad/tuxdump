@@ -6,7 +6,6 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 include(BuildType)
 
-
 find_package(libconfig++ CONFIG QUIET)
 find_package(PkgConfig QUIET)
 
@@ -15,19 +14,23 @@ set(BUILD_TESTS OFF CACHE BOOL "Build libconfig tests")
 set(BUILD_EXAMPLES OFF CACHE BOOL "Build libconfig examples")
 set(FMT_TEST OFF CACHE BOOL "Disable fmt tests")
 
-if (NOT LIBCONFIG++_FOUND)
+if (NOT CONFIG++_FOUND)
     if (PkgConfig_FOUND)
-        pkg_check_modules(LIBCONFIG++ libconfig++ QUIET)
+        pkg_check_modules(CONFIG++ libconfig++ QUIET)
     endif()
-    if (NOT LIBCONFIG++_FOUND)
-        set(USE_INTERNAL_LIBCONFIG ON CACHE BOOL "Use internal libconfig" FORCE)
+    if (NOT CONFIG++_FOUND)
+	set(USE_INTERNAL_LIBCONFIG ON CACHE BOOL "Use internal libconfig" FORCE)
         add_subdirectory(libs/libconfig)
     endif()
+else()
+    set(CONFIG++_LIBRARY "${LIBCONFIG++_LIBRARIES}")
+    set(CONFIG++_INCLUDE_DIR "${LIBCONFIG++_INCLUDE_DIRS}")
 endif()
 
 if (USE_INTERNAL_LIBCONFIG)
     message(STATUS "Using internal libconfig")
-    set(LIBCONFIG++_LIBRARIES "config++")
+    set(CONFIG++_LIBRARY "config++")
+    set(CONFIG++_INCLUDE_DIR "libs/libconfig/lib")
 else()
     message(STATUS "Using system libconfig")
 endif()
@@ -40,12 +43,12 @@ add_executable(${PROJECT_NAME}
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${LIBCONFIG++_INCLUDE_DIRS}
+    ${CONFIG++_INCLUDE_DIR}
     libs/rapidjson/include
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    ${LIBCONFIG++_LIBRARIES}
+    ${CONFIG++_LIBRARY}
     fmt
     tuxproc
 )
@@ -59,7 +62,6 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_11)
 target_compile_options(${PROJECT_NAME} PRIVATE 
     $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
 )
-
 
 add_subdirectory(libs/tuxproc)
 add_subdirectory(libs/fmt)
